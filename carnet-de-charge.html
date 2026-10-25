@@ -195,6 +195,11 @@ const PROGS_PAR_NIVEAU={reprise:REPRISE_PROGS,inter:BASE_PROGS,nage:NAGE_PROGS},
 
 /* ===================== État ===================== */
 let S={profil:{prenom:"",poids:95,taille:178,age:45,sexe:"H",activite:1.375,objectif:"maintien",niveau:"reprise",joursSemaine:3,objectif_evt:{nom:"Chemin de Stevenson — Luc → Florac",date:"2027-04-27"},exercices:BASE_EXOS,programmes:REPRISE_PROGS,machinesIndispo:[]},seances:[],nutrition:[]};
+// Clubs : chaque club a sa liste d'exercices indisponibles ; l'ancien champ machinesIndispo est migré dans un premier club
+function ensureClubs(){const p=S.profil;if(!Array.isArray(p.clubs)||!p.clubs.length){p.clubs=[{id:"club1",nom:"Mon club",indispo:[...(p.machinesIndispo||[])]}]}if(!p.clubs.find(c=>c.id===p.clubActif))p.clubActif=p.clubs[0].id}
+function clubActif(){ensureClubs();return S.profil.clubs.find(c=>c.id===S.profil.clubActif)}
+function clubDe(id){ensureClubs();return S.profil.clubs.find(c=>c.id===id)||clubActif()}
+function indispoAu(clubId,exoId){const c=clubDe(clubId);return c&&c.indispo.includes(exoId)}
 const reprise=()=>S.profil.niveau==="reprise";
 const nage=()=>S.profil.niveau==="nage";
 const filled=t=>t.poids!==""&&t.poids!=null&&!isNaN(t.poids)&&t.reps; // poids 0 = poids du corps sans lest
@@ -320,7 +325,9 @@ function recommande(exoId,presc,rf){
   return{poids:round(poids,e.incr||2.5),texte,tag,last};
 }
 // Substituts : même schéma moteur, différents de l'exercice d'origine, machines indisponibles exclues
-function substituts(exoId){const e=exo(exoId),maison=current&&current.lieu==="maison";return S.profil.exercices.filter(x=>x.pattern===e.pattern&&x.id!==exoId&&!S.profil.machinesIndispo.includes(x.id)&&(!maison||x.equip==="pdc"))}
+function substituts(exoId,clubId){const e=exo(exoId),maison=current&&current.lieu==="maison",cid=clubId||(current&&current.clubId)||S.profil.clubActif;return S.profil.exercices.filter(x=>x.pattern===e.pattern&&x.id!==exoId&&!indispoAu(cid,x.id)&&(!maison||x.equip==="pdc"))}
+// Adapte une séance au club : remplace les exercices indisponibles par un substitut disponible du même schéma (séries non encore saisies seulement)
+function adapterAuClub(sess){const c=clubDe(sess.clubId);if(!c||sess.lieu==="maison")return[];const rempl=[];sess.exos.forEach(x=>{if(x.sets.some(filled))return;const base=x.origId||x.exoId;if(!indispoAu(c.id,x.exoId))return;const subs=substituts(base,c.id).filter(s=>s.id!==x.exoId);const pref=subs.find(s=>histo(s.id).length)||subs[0];if(pref){rempl.push(exo(x.exoId).nom+" → "+pref.nom);x.origId=base;x.exoId=pref.id;x.sets.forEach(t=>{t.poids="";t.reps="";t.rpe=""})}else rempl.push(exo(x.exoId).nom+" : aucun substitut, à faire ailleurs")});return rempl}
 // Estimation de charge sur un substitut à partir de l'historique croisé
 function estimeSubstitut(origId,subId){
   const hs=histo(subId);if(hs.length)return{poids:null,texte:"Tu as déjà fait cet exercice : la recommandation ci-dessous vient de ton propre historique.",fromHist:true};
@@ -385,13 +392,15 @@ function renderSeance(){
         <select id="sel-prog" class="grow">${S.profil.programmes.map(p=>`<option value="${p.id}" ${next&&p.id===next.id?"selected":""}>${p.nom}</option>`).join("")}</select>
         <button class="btn-primary" id="btn-start">Démarrer</button>
       </div>
+      <div class="row" style="margin-top:8px"><label class="f grow">Club du jour<select id="sel-club">${(ensureClubs(),S.profil.clubs).map(c=>`<option value="${c.id}" ${c.id===S.profil.clubActif?"selected":""}>${c.nom}${c.indispo.length?" · "+c.indispo.length+" machine(s) absente(s)":""}</option>`).join("")}</select></label></div>
       <div class="row" style="margin-top:8px"><button class="btn-sm" id="btn-print-next">Imprimer la fiche de cette séance</button><span class="small muted">Grille vierge pour noter à la salle, à retranscrire au retour.</span></div>
     </div>
     ${S.seances.length===0?`<div class="card empty"><h3>Carnet vide</h3><p>Chaque séance validée alimente les recommandations de charge, l'analyse de plateau et les substitutions. Pour voir l'application en fonctionnement avant ta première séance :</p><button id="btn-demo">Charger 4 semaines d'exemple</button></div>`:""}
     ${historiqueHtml()}`;
     bindObjectif();
-    $("#btn-start").onclick=()=>startSeance($("#sel-prog").value);
-    $("#btn-print-next").onclick=()=>{const pid=$("#sel-prog").value,p=S.profil.programmes.find(x=>x.id===pid);if(!p)return;const oi=objectifInfo();const bonus=(reprise()&&nbValide()>=6?1:0)+(oi&&oi.phase&&oi.phase.setDelta||0);printSheet({date:today(),programmeId:pid,readiness:null,exos:p.exos.map(e=>({exoId:e.exoId,origId:null,presc:{...e,series:Math.max(1,e.series+bonus)},sets:[]}))})};
+    $("#btn-start").onclick=()=>startSeance($("#sel-prog").value,$("#sel-club").value);
+    $("#sel-club").onchange=e=>{S.profil.clubActif=e.target.value;persistProfil()};
+    $("#btn-print-next").onclick=()=>{const pid=$("#sel-prog").value,p=S.profil.programmes.find(x=>x.id===pid);if(!p)return;const oi=objectifInfo();const bonus=(reprise()&&nbValide()>=6?1:0)+(oi&&oi.phase&&oi.phase.setDelta||0);const sh={date:today(),programmeId:pid,clubId:$("#sel-club").value,lieu:p.lieu||"salle",readiness:null,exos:p.exos.map(e=>({exoId:e.exoId,origId:null,presc:{...e,series:Math.max(1,e.series+bonus)},sets:[]}))};adapterAuClub(sh);printSheet(sh)};
     const d=$("#btn-demo");if(d)d.onclick=chargerDemo;
     el.querySelectorAll("[data-del-seance]").forEach(b=>b.onclick=()=>{const id=b.dataset.delSeance;if(b.dataset.sure){S.seances=S.seances.filter(s=>s.id!==id);saveLocal();dbDelete("seance",id);render()}else{b.dataset.sure="1";b.textContent="Confirmer ?"}});
     return;
@@ -401,6 +410,7 @@ function renderSeance(){
   el.innerHTML=`
   <div class="card">
     <div class="row"><div class="grow"><label class="eyebrow" for="cur-date" style="display:block">Date de la séance</label><input type="date" id="cur-date" value="${current.date}" max="${today()}" style="width:auto;margin:2px 0 4px"><h2>${progNom(current.programmeId)}</h2></div></div>
+    ${current.lieu!=="maison"?`<div class="row" style="margin-top:8px"><label class="f grow">Club<select id="cur-club">${(ensureClubs(),S.profil.clubs).map(c=>`<option value="${c.id}" ${c.id===current.clubId?"selected":""}>${c.nom}</option>`).join("")}</select></label></div>`:""}
     <div class="row" style="margin-top:8px"><button class="btn-sm" id="btn-repos">⏱ Repos</button><button class="btn-sm" id="btn-print">Imprimer la fiche</button><span class="grow"></span><button class="btn-sm btn-ghost" id="btn-abandon">Abandonner</button></div>
     <div class="legend" style="margin-top:8px">${[1,2,3,4].map(k=>`<span style="--gc:var(--g${k})">${FAM_NOM[k]}</span>`).join("")}</div>
   </div>
@@ -428,6 +438,7 @@ function renderSeance(){
   </div>`;
   el.querySelectorAll(".scale").forEach(sc=>sc.querySelectorAll("button").forEach(b=>b.onclick=()=>{current.readiness[sc.dataset.k]=+b.dataset.v;renderSeance()}));
   $("#cur-date").onchange=e=>{const v=e.target.value;if(!v)return;current.date=v;saveCurrent();renderSeance();toast("Séance datée du "+fmtDate(v))};
+  const cc=$("#cur-club");if(cc)cc.onchange=e=>{current.clubId=e.target.value;S.profil.clubActif=e.target.value;persistProfil();const r=adapterAuClub(current);toast(r.length?"Adapté au club : "+r.join(" · "):"Club changé, rien à adapter");saveCurrent();renderSeance()};
   $("#btn-repos").onclick=()=>startTimer(reposDefaut(),"Repos");
   $("#btn-print").onclick=()=>printSheet(current);
   $("#btn-abandon").onclick=()=>{const b=$("#btn-abandon");if(!b.dataset.sure){b.dataset.sure="1";b.textContent="Confirmer l'abandon";return}clearCurrent();stopTimer();renderSeance()};
@@ -437,11 +448,12 @@ function renderSeance(){
 }
 function progNom(id){const p=S.profil.programmes.find(p=>p.id===id);return p?p.nom:"Séance libre"}
 function prochainProgramme(){const ps=S.profil.programmes;if(!ps.length)return null;const last=S.seances.filter(s=>s.valide).sort((a,b)=>b.date.localeCompare(a.date))[0];if(!last)return ps[0];const i=ps.findIndex(p=>p.id===last.programmeId);return ps[(i+1)%ps.length]}
-function startSeance(progId){
-  const p=S.profil.programmes.find(x=>x.id===progId);
+function startSeance(progId,clubId){
+  const p=S.profil.programmes.find(x=>x.id===progId);ensureClubs();clubId=clubId||S.profil.clubActif;if(clubId!==S.profil.clubActif){S.profil.clubActif=clubId;persistProfil()}
   const oi=objectifInfo();const bonus=(reprise()&&nbValide()>=6?1:0)+(oi&&oi.phase&&oi.phase.setDelta||0); // reprise : 2 séries puis 3 ; affûtage : une de moins
-  current={id:uid(),date:today(),programmeId:progId,lieu:p&&p.lieu||"salle",readiness:{sommeil:4,energie:4,courbatures:4},note:"",valide:false,
+  current={id:uid(),date:today(),programmeId:progId,clubId,lieu:p&&p.lieu||"salle",readiness:{sommeil:4,energie:4,courbatures:4},note:"",valide:false,
     exos:(p?p.exos:[]).map(e=>({exoId:e.exoId,origId:null,presc:{...e,series:Math.max(1,e.series+bonus)},sets:Array.from({length:Math.max(1,e.series+bonus)},()=>({poids:"",reps:"",rpe:""}))}))};
+  const r=adapterAuClub(current);if(r.length)toast("Adapté au club : "+r.join(" · "));
   saveCurrent();renderSeance();
 }
 function saveCurrent(){try{localStorage.setItem(LS+"current",JSON.stringify(current))}catch(e){};if(current)dbWrite("courant","courant",current)}
@@ -469,7 +481,9 @@ function renderExos(rf){
   box.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{const[i,j]=b.dataset.rm.split(":");current.exos[i].sets.splice(j,1);saveCurrent();renderExos(rf)});
   box.querySelectorAll("[data-rmexo]").forEach(b=>b.onclick=()=>{current.exos.splice(b.dataset.rmexo,1);saveCurrent();renderExos(rf)});
   box.querySelectorAll("[data-sub]").forEach(b=>b.onclick=()=>{const i=+b.dataset.sub,x=current.exos[i],orig=x.origId||x.exoId,list=substituts(orig).filter(s=>s.id!==x.exoId);const sb=$("#sub-"+i);sb.hidden=!sb.hidden;
-    sb.innerHTML=list.length?`<div class="eyebrow">Même schéma moteur (${PATTERNS[exo(orig).pattern]})</div><div class="list" style="margin-top:6px">${list.map(s=>{const h=histo(s.id);return`<div class="item"><span class="grow">${s.nom} <span class="small muted">· ${EQUIP[s.equip]}${h.length?" · déjà "+h.length+" séance(s)":""}</span></span><button class="btn-sm btn-primary" data-choose="${s.id}">Choisir</button></div>`}).join("")}</div>`:`<div class="small muted">Aucun substitut connu pour ce schéma. Ajoute-en un dans Profil → Exercices.</div>`;
+    const cl=clubDe(current.clubId),dejaAbs=cl&&cl.indispo.includes(x.exoId),absBtn=current.lieu!=="maison"&&cl?`<div class="row small" style="margin:6px 0"><button class="btn-sm ${dejaAbs?"btn-ghost":""}" data-absent="${x.exoId}">${dejaAbs?"Marquer présente à "+cl.nom:"Cette machine n'existe pas à "+cl.nom}</button></div>`:"";
+    sb.innerHTML=(list.length?`<div class="eyebrow">Même schéma moteur (${PATTERNS[exo(orig).pattern]})</div><div class="list" style="margin-top:6px">${list.map(s=>{const h=histo(s.id);return`<div class="item"><span class="grow">${s.nom} <span class="small muted">· ${EQUIP[s.equip]}${h.length?" · déjà "+h.length+" séance(s)":""}</span></span><button class="btn-sm btn-primary" data-choose="${s.id}">Choisir</button></div>`}).join("")}</div>`:`<div class="small muted">Aucun substitut connu pour ce schéma. Ajoute-en un dans Profil → Exercices.</div>`)+absBtn;
+    const ab=sb.querySelector("[data-absent]");if(ab)ab.onclick=()=>{const id=ab.dataset.absent;if(cl.indispo.includes(id))cl.indispo=cl.indispo.filter(z=>z!==id);else cl.indispo.push(id);persistProfil();toast(cl.indispo.includes(id)?"Marquée absente à "+cl.nom:"Marquée présente à "+cl.nom);renderExos(rf);const nb=$("#sub-"+i);if(nb){nb.hidden=false;document.querySelector(`[data-sub="${i}"]`).click();document.querySelector(`[data-sub="${i}"]`).click()}};
     sb.querySelectorAll("[data-choose]").forEach(c=>c.onclick=()=>{x.origId=orig;x.exoId=c.dataset.choose;x.sets.forEach(s=>{s.poids="";s.reps="";s.rpe=""});saveCurrent();renderExos(rf)})});
   $("#btn-add-exo").onclick=()=>{const id=$("#add-exo").value;if(!id)return;current.exos.push({exoId:id,origId:null,presc:{exoId:id,series:3,repMin:8,repMax:12,rpe:8},sets:[{},{},{}].map(()=>({poids:"",reps:"",rpe:""}))});saveCurrent();renderExos(rf)};
 }
@@ -483,7 +497,7 @@ function validerSeance(){
 }
 function historiqueHtml(){
   const l=S.seances.filter(s=>s.valide).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);if(!l.length)return"";
-  return`<div class="card"><div class="eyebrow">Historique récent</div><div class="list" style="margin-top:8px">${l.map(s=>{const ton=s.exos.reduce((a,e)=>a+e.sets.reduce((b,t)=>b+t.poids*t.reps,0),0);return`<details class="item" style="display:block"><summary>${fmtDate(s.date)} · ${progNom(s.programmeId)} <span class="muted small">· ${s.exos.length} exos · ${Math.round(ton/1000*10)/10} t</span></summary><div class="small" style="margin-top:6px">${s.exos.map(e=>`<div>${exo(e.exoId).nom}${e.origId?" <span class='pill warn'>substitut</span>":""} : ${e.sets.map(t=>t.poids+"×"+t.reps).join(", ")}</div>`).join("")}${s.note?`<div class="muted">« ${s.note} »</div>`:""}<button class="btn-sm btn-danger" style="margin-top:6px" data-del-seance="${s.id}">Supprimer</button></div></details>`}).join("")}</div></div>`;
+  return`<div class="card"><div class="eyebrow">Historique récent</div><div class="list" style="margin-top:8px">${l.map(s=>{const ton=s.exos.reduce((a,e)=>a+e.sets.reduce((b,t)=>b+t.poids*t.reps,0),0);return`<details class="item" style="display:block"><summary>${fmtDate(s.date)} · ${progNom(s.programmeId)} <span class="muted small">· ${s.clubId&&s.lieu!=="maison"?clubDe(s.clubId).nom+" · ":""}${s.exos.length} exos · ${Math.round(ton/1000*10)/10} t</span></summary><div class="small" style="margin-top:6px">${s.exos.map(e=>`<div>${exo(e.exoId).nom}${e.origId?" <span class='pill warn'>substitut</span>":""} : ${e.sets.map(t=>t.poids+"×"+t.reps).join(", ")}</div>`).join("")}${s.note?`<div class="muted">« ${s.note} »</div>`:""}<button class="btn-sm btn-danger" style="margin-top:6px" data-del-seance="${s.id}">Supprimer</button></div></details>`}).join("")}</div></div>`;
 }
 
 /* ---------- Programme ---------- */
@@ -613,8 +627,10 @@ function renderProfil(){
     <div class="row" style="margin-top:10px"><button class="btn-sm" id="pf-prog-rep">Programme reprise</button><button class="btn-sm" id="pf-prog-hb">Programme haut/bas</button><button class="btn-sm" id="pf-prog-nage">Programme natation</button></div>
     <div class="row" style="margin-top:10px;justify-content:flex-end"><button class="btn-primary" id="pf-save">Enregistrer</button></div>
   </div>
-  <div class="card"><div class="row"><h3 class="grow">Machines indisponibles au club</h3></div><p class="small muted" style="margin:4px 0 8px">Coche ce que ton club n'a pas : ces exercices ne seront jamais proposés comme substituts.</p>
-    <div class="list">${p.exercices.filter(e=>e.equip==="machine"||e.equip==="cable").map(e=>`<label class="item" style="cursor:pointer"><input type="checkbox" style="width:auto" data-indispo="${e.id}" ${p.machinesIndispo.includes(e.id)?"checked":""}><span class="grow">${e.nom}</span></label>`).join("")}</div></div>
+  <div class="card"><div class="row"><h3 class="grow">Clubs et matériel</h3><button class="btn-sm" id="club-add">+ Club</button></div><p class="small muted" style="margin:4px 0 8px">Un club par salle fréquentée (Basic-Fit Ixelles, Basic-Fit Uccle…). Coche ce que ce club n'a pas : ces exercices sont remplacés automatiquement quand tu choisis ce club en début de séance.</p>
+    <div class="row"><select id="club-sel" class="grow">${(ensureClubs(),p.clubs).map(c=>`<option value="${c.id}" ${c.id===(window._clubEdit||p.clubActif)?"selected":""}>${c.nom}</option>`).join("")}</select><button class="btn-sm" id="club-ren">Renommer</button>${p.clubs.length>1?`<button class="btn-sm btn-danger" id="club-del">Suppr.</button>`:""}</div>
+    ${(()=>{const c=p.clubs.find(z=>z.id===(window._clubEdit||p.clubActif))||p.clubs[0];return`<div class="eyebrow" style="margin-top:10px">Absent à ${c.nom} (${c.indispo.length})</div><div class="list" style="margin-top:6px">${p.exercices.filter(e=>e.equip!=="pdc").map(e=>`<label class="item" style="cursor:pointer"><input type="checkbox" style="width:auto" data-indispo="${e.id}" data-club="${c.id}" ${c.indispo.includes(e.id)?"checked":""}><span class="grow">${e.nom} <span class="small muted">· ${EQUIP[e.equip]}</span></span></label>`).join("")}</div>`})()}
+  </div>
   <div class="card"><div class="row"><h3 class="grow">Exercices (${p.exercices.length})</h3></div>
     <div class="grid2" style="margin-top:8px"><label class="f">Nom<input id="ex-nom" placeholder="Ex. Chest press Technogym"></label><label class="f">Schéma moteur<select id="ex-pat">${Object.entries(PATTERNS).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}</select></label><label class="f">Matériel<select id="ex-eq">${Object.entries(EQUIP).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}</select></label><label class="f">Incrément (kg)<input type="number" step="0.5" id="ex-inc" value="2.5"></label></div>
     <div class="row" style="margin-top:8px;justify-content:flex-end"><button id="ex-add">Ajouter l'exercice</button></div>
@@ -640,7 +656,11 @@ function renderProfil(){
   $("#pf-prog-rep").onclick=()=>{p.programmes=JSON.parse(JSON.stringify(REPRISE_PROGS));p.joursSemaine=3;persistProfil();toast("Programme de reprise chargé");render()};
   $("#pf-prog-hb").onclick=()=>{p.programmes=JSON.parse(JSON.stringify(BASE_PROGS));p.joursSemaine=4;persistProfil();toast("Programme haut/bas chargé");render()};
   $("#pf-prog-nage").onclick=()=>{p.programmes=JSON.parse(JSON.stringify(NAGE_PROGS));p.joursSemaine=2;persistProfil();toast("Programme natation chargé");render()};
-  el.querySelectorAll("[data-indispo]").forEach(c=>c.onchange=()=>{const id=c.dataset.indispo;p.machinesIndispo=c.checked?[...p.machinesIndispo,id]:p.machinesIndispo.filter(x=>x!==id);persistProfil()});
+  el.querySelectorAll("[data-indispo]").forEach(c=>c.onchange=()=>{const id=c.dataset.indispo,cl=p.clubs.find(z=>z.id===c.dataset.club);if(!cl)return;cl.indispo=c.checked?[...new Set([...cl.indispo,id])]:cl.indispo.filter(x=>x!==id);persistProfil();const t=el.querySelector(".eyebrow[style]");if(t)t.textContent="Absent à "+cl.nom+" ("+cl.indispo.length+")"});
+  $("#club-sel").onchange=e=>{window._clubEdit=e.target.value;renderProfil()};
+  $("#club-add").onclick=()=>{const c={id:"club_"+uid(),nom:"Nouveau club",indispo:[]};p.clubs.push(c);window._clubEdit=c.id;persistProfil();renderProfil();setTimeout(()=>$("#club-ren").click(),50)};
+  $("#club-ren").onclick=()=>{const c=p.clubs.find(z=>z.id===$("#club-sel").value);if(!c)return;const sel=$("#club-sel");const inp=document.createElement("input");inp.value=c.nom;inp.className="grow";sel.replaceWith(inp);inp.focus();inp.select();const done=()=>{c.nom=inp.value.trim()||c.nom;persistProfil();renderProfil()};inp.onblur=done;inp.onkeydown=e=>{if(e.key==="Enter")inp.blur()}};
+  const cd=$("#club-del");if(cd)cd.onclick=()=>{const id=$("#club-sel").value;if(!cd.dataset.sure){cd.dataset.sure="1";cd.textContent="Confirmer ?";return}p.clubs=p.clubs.filter(z=>z.id!==id);if(p.clubActif===id)p.clubActif=p.clubs[0].id;window._clubEdit=p.clubActif;persistProfil();renderProfil()};
   $("#ex-add").onclick=()=>{const nom=$("#ex-nom").value.trim();if(!nom)return;p.exercices.push({id:"c_"+uid(),nom,pattern:$("#ex-pat").value,equip:$("#ex-eq").value,incr:+$("#ex-inc").value||2.5,custom:true});persistProfil();toast("Exercice ajouté");renderProfil()};
   el.querySelectorAll("[data-exdel]").forEach(b=>b.onclick=()=>{p.exercices=p.exercices.filter(e=>e.id!==b.dataset.exdel);persistProfil();renderProfil()});
   $("#btn-reset").onclick=()=>{const b=$("#btn-reset");if(!b.dataset.sure){b.dataset.sure="1";b.textContent="Confirmer l'effacement";return}S.seances.forEach(s=>dbDelete("seance",s.id));S.nutrition.forEach(n=>dbDelete("nutrition",n.date));S.seances=[];S.nutrition=[];saveLocal();render();toast("Carnet effacé")};
@@ -891,7 +911,7 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden&&timer)tic
 /* ===================== Fiche imprimable ===================== */
 function printSheet(sess){
   const rf=readinessFactor(sess.readiness);
-  const html=`<h1>${progNom(sess.programmeId)}</h1>
+  const html=`<h1>${progNom(sess.programmeId)}${sess.clubId&&sess.lieu!=="maison"?` <span style="font-weight:400;font-size:12pt">· ${clubDe(sess.clubId).nom}</span>`:""}</h1>
   <div class="meta">${new Date(sess.date+"T12:00").toLocaleDateString("fr-BE",{weekday:"long",day:"numeric",month:"long",year:"numeric"})} · ${S.profil.prenom||""} · poids du jour : ______ kg · Forme (1–5) : sommeil ___ énergie ___ courbatures ___${nage()?" fraîcheur natation ___":""}</div>
   <div class="meta">${[1,2,3,4].map(k=>`<span style="display:inline-block;width:9pt;height:9pt;background:var(--g${k});margin:0 3pt 0 8pt;vertical-align:-1pt"></span>${FAM_NOM[k]}`).join("")}</div>
   ${sess.exos.map(x=>{const e=exo(x.exoId),rec=recommande(x.exoId,x.presc,rf),n=Math.max(1,x.presc.series+(rf.setDelta||0))+1;const col=e.assist?"Assist. kg":e.lestable?"Lest kg":"Kg";
