@@ -91,7 +91,7 @@ tr.fam-row td:first-child{border-left:5px solid var(--gc);padding-left:8px}
   #print .exo-p{break-inside:avoid;page-break-inside:avoid}
 }
 .exo:first-child{border-top:0}
-.sets{display:grid;grid-template-columns:28px 1fr 1fr 1fr 36px;gap:6px;align-items:center}
+.sets{display:grid;grid-template-columns:24px 1fr 1fr 1.25fr 32px;gap:6px;align-items:center}
 .sets .h{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .sets input{padding:6px;text-align:center}
 .readiness{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
@@ -200,6 +200,15 @@ function ensureClubs(){const p=S.profil;if(!Array.isArray(p.clubs)||!p.clubs.len
 function clubActif(){ensureClubs();return S.profil.clubs.find(c=>c.id===S.profil.clubActif)}
 function clubDe(id){ensureClubs();return S.profil.clubs.find(c=>c.id===id)||clubActif()}
 function indispoAu(clubId,exoId){const c=clubDe(clubId);return c&&c.indispo.includes(exoId)}
+// Unité d'affichage : les charges sont toujours stockées en kg ; l'unité (kg ou lb) suit le club de la séance
+const LB=0.45359237;
+function unitOf(id){return exo(id).unit||"kg"} // varie de machine en machine
+const toU=(kg,id)=>unitOf(id)==="lb"?Math.round(kg/LB*10)/10:kg;
+const fromU=(v,id)=>unitOf(id)==="lb"?Math.round(v*LB*100)/100:v;
+const fmtU=(kg,id)=>(kg==null||kg==="")?"":(Math.round(toU(kg,id)*10)/10)+"";
+function toggleUnit(id){const e=exo(id);e.unit=e.unit==="lb"?"kg":"lb";persistProfil()}
+const RESSENTI=[["","?"],["6","Facile"],["7.5","Juste"],["9","Dur"],["10","Échec"]];
+function ressentiLabel(r){r=+r;if(!r)return"";return r<=6.5?"facile":r<=8?"juste":r<=9.5?"dur":"échec"}
 const reprise=()=>S.profil.niveau==="reprise";
 const nage=()=>S.profil.niveau==="nage";
 const filled=t=>t.poids!==""&&t.poids!=null&&!isNaN(t.poids)&&t.reps; // poids 0 = poids du corps sans lest
@@ -422,7 +431,7 @@ function renderSeance(){
     <div class="advice ${rf.f<1?"warn":"ok"}" style="margin-top:10px">${rf.label}</div>
   </div>
   ${reprise()?`<div class="card"><div class="eyebrow">Consignes de reprise · séance n°${nbValide()+1}</div><div class="small" style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
-    <div>Arrête chaque série avec 3–4 reps en réserve (RPE 6–7). Si tu hésites, c'est trop lourd.</div>
+    <div>Arrête chaque série avec 3–4 reps en réserve : ressenti « Facile » ou « Juste ». « Dur », c'est trop lourd pour la fourchette.</div>
     <div>2 minutes de repos entre les séries, 48 h entre deux séances. ${nbValide()<6?"2 séries par exercice jusqu'à la 6e séance, puis 3.":"3 séries par exercice."}</div>
     <div>Des courbatures le lendemain sont normales les 2 premières semaines ; une douleur articulaire ne l'est pas : réduis la charge ou change d'exercice (bouton « Machine prise »).</div>
     ${nbValide()>=18?`<div><strong>18 séances validées :</strong> tu peux passer au niveau Intermédiaire dans Profil pour débloquer le programme haut/bas et les charges libres.</div>`:""}
@@ -471,20 +480,22 @@ function renderExos(rf){
     const sub=x.origId?estimeSubstitut(x.origId,x.exoId):null;
     const tagCls={progresse:"ok",recule:"bad",reps:"",plateau:"warn",nouveau:""}[rec.tag]||"";
     if(x.done)return `<div class="exo" data-i="${i}" style="${famStyle(x.exoId)};opacity:.75">
-      <div class="row"><label class="row" style="gap:8px;cursor:pointer"><input type="checkbox" checked data-done="${i}" style="width:auto"><strong>${e.nom}</strong></label><span class="small muted grow">${x.sets.filter(filled).map(s=>(s.poids||0)+"×"+s.reps).join(" · ")||"sans séries"}</span><span class="pill ok">terminé</span></div></div>`;
+      <div class="row"><label class="row" style="gap:8px;cursor:pointer"><input type="checkbox" checked data-done="${i}" style="width:auto"><strong>${e.nom}</strong></label><span class="small muted grow">${x.sets.filter(filled).map(s=>fmtU(s.poids||0,e.id)+"×"+s.reps).join(" · ")||"sans séries"} ${unitOf(e.id)}</span><span class="pill ok">terminé</span></div></div>`;
     return `<div class="exo" data-i="${i}" style="${famStyle(x.exoId)}">
-      <div class="row"><div class="grow"><h3><label style="cursor:pointer"><input type="checkbox" data-done="${i}" style="width:auto;margin-right:6px" title="Exercice terminé"></label>${e.nom} <button class="btn-sm play" data-anim="${e.id}" title="Voir le mouvement">▶</button></h3><div class="small muted"><span class="fam">${FAM_NOM[famOf(x.exoId)]}</span> ${x.presc.series}×${x.presc.repMin}–${x.presc.repMax} · RPE ${x.presc.rpe} · ${PATTERNS[e.pattern]||""} ${x.origId?`· <span class="pill warn">remplace ${exo(x.origId).nom}</span>`:""}</div></div>
+      <div class="row"><div class="grow"><h3><label style="cursor:pointer"><input type="checkbox" data-done="${i}" style="width:auto;margin-right:6px" title="Exercice terminé"></label>${e.nom} <button class="btn-sm play" data-anim="${e.id}" title="Voir le mouvement">▶</button></h3><div class="small muted"><span class="fam">${FAM_NOM[famOf(x.exoId)]}</span> ${x.presc.series}×${x.presc.repMin}–${x.presc.repMax} · visé : ${ressentiLabel(x.presc.rpe)||"juste"} · ${PATTERNS[e.pattern]||""} ${x.origId?`· <span class="pill warn">remplace ${exo(x.origId).nom}</span>`:""}</div></div>
         <button class="btn-sm" data-sub="${i}">${x.origId?"Autre substitut":current.lieu==="maison"?"Variante":"Machine prise"}</button></div>
       ${sub?`<div class="advice warn">${sub.texte}${sub.poids?` <strong>≈ ${sub.poids} kg</strong>`:""}</div>`:""}
-      <div class="advice ${tagCls}">${rec.poids?`<strong class="num">${rec.poids} kg</strong> · `:""}${rec.texte}</div>
-      ${rec.last?`<div class="small muted">Dernière fois (${fmtDate(rec.last.date)}) : ${rec.last.sets.map(s=>(e.assist?"−"+(+s.poids||0)+"×":e.lestable?"+"+(+s.poids||0)+"×":s.poids?s.poids+"×":"")+s.reps+(s.rpe?"@"+s.rpe:"")).join(" · ")}${sansLest(rec.last.sets)?"":" · e1RM "+Math.round(bestE1rm(rec.last.sets))+" kg"+(e.assist||e.lestable?" (poids du corps inclus)":"")}</div>`:""}
-      <div class="sets"><span class="h">#</span><span class="h">${e.assist?"assist. kg":e.lestable?"lest kg":"kg"}</span><span class="h">reps</span><span class="h">RPE</span><span></span>
-      ${x.sets.map((s,j)=>`<span class="num">${j+1}</span><input type="number" step="0.5" inputmode="decimal" id="p-${i}-${j}" value="${s.poids}" placeholder="${rec.poids!=null?rec.poids:(e.equip==="pdc"||e.assist?"0":"")}" data-f="poids" data-i="${i}" data-j="${j}"><input type="number" inputmode="numeric" id="r-${i}-${j}" value="${s.reps}" placeholder="${x.presc.repMin}" data-f="reps" data-i="${i}" data-j="${j}"><input type="number" step="0.5" inputmode="decimal" id="e-${i}-${j}" value="${s.rpe}" placeholder="${x.presc.rpe}" data-f="rpe" data-i="${i}" data-j="${j}"><button class="btn-sm btn-ghost" data-rm="${i}:${j}" title="Retirer">×</button>`).join("")}</div>
+      <div class="advice ${tagCls}">${rec.poids?`<strong class="num">${fmtU(rec.poids,e.id)} ${unitOf(e.id)}</strong> · `:""}${unitOf(e.id)==="lb"?rec.texte.replace(/(\d+(?:[.,]\d+)?) kg/g,(m,n)=>fmtU(+n.replace(",","."),e.id)+" lb"):rec.texte}</div>
+      ${rec.last?`<div class="small muted">Dernière fois (${fmtDate(rec.last.date)}) : ${rec.last.sets.map(s=>(e.assist?"−"+fmtU(+s.poids||0,e.id)+"×":e.lestable?"+"+fmtU(+s.poids||0,e.id)+"×":s.poids?fmtU(s.poids,e.id)+"×":"")+s.reps+(s.rpe?" "+ressentiLabel(s.rpe):"")).join(" · ")} ${unitOf(e.id)}${sansLest(rec.last.sets)?"":" · e1RM "+Math.round(bestE1rm(rec.last.sets))+" kg"+(e.assist||e.lestable?" (poids du corps inclus)":"")}</div>`:""}
+      <div class="sets"><span class="h">#</span><span class="h">${e.assist?"assist. ":e.lestable?"lest ":""}<button class="btn-sm btn-ghost" data-unit="${i}" title="Basculer kg / lb pour cet exercice" style="padding:1px 6px;font-size:.7rem">${unitOf(e.id)} ⇄</button></span><span class="h">reps</span><span class="h">ressenti</span><span></span>
+      ${x.sets.map((s,j)=>`<span class="num">${j+1}</span><input type="number" step="0.5" inputmode="decimal" id="p-${i}-${j}" value="${fmtU(s.poids,e.id)}" placeholder="${rec.poids!=null?fmtU(rec.poids,e.id):(e.equip==="pdc"||e.assist?"0":"")}" data-f="poids" data-i="${i}" data-j="${j}"><input type="number" inputmode="numeric" id="r-${i}-${j}" value="${s.reps}" placeholder="${x.presc.repMin}" data-f="reps" data-i="${i}" data-j="${j}"><select id="e-${i}-${j}" data-f="rpe" data-i="${i}" data-j="${j}" style="padding:6px 2px;text-align:center">${RESSENTI.map(([v,l])=>`<option value="${v}" ${String(s.rpe)===v?"selected":""}>${l}</option>`).join("")}</select><button class="btn-sm btn-ghost" data-rm="${i}:${j}" title="Retirer">×</button>`).join("")}</div>
       <div class="row small"><button class="btn-sm" data-add="${i}">+ série</button>${n<x.sets.length?`<span class="muted">Forme du jour : ${n} séries suffisent</span>`:""}<span class="grow"></span><button class="btn-sm btn-ghost" data-rmexo="${i}">Retirer l'exercice</button></div>
       <div class="subbox" id="sub-${i}" hidden></div>
     </div>`}).join("")+`<div class="exo"><div class="row"><select id="add-exo" class="grow"><option value="">Ajouter un exercice…</option>${S.profil.exercices.filter(e=>current.lieu!=="maison"||e.equip==="pdc").map(e=>`<option value="${e.id}">${e.nom}</option>`).join("")}</select><button class="btn-sm" id="btn-add-exo">Ajouter</button></div></div>`;
-  box.querySelectorAll("input[data-f]").forEach(inp=>{inp.oninput=e=>{const{f,i,j}=e.target.dataset;current.exos[i].sets[j][f]=e.target.value===""?"":+e.target.value;saveCurrent();renderEtat()};
+  box.querySelectorAll("select[data-f]").forEach(sel=>sel.onchange=e=>{const{i,j}=e.target.dataset;current.exos[i].sets[j].rpe=e.target.value===""?"":+e.target.value;saveCurrent()});
+  box.querySelectorAll("input[data-f]").forEach(inp=>{inp.oninput=e=>{const{f,i,j}=e.target.dataset;const v=e.target.value===""?"":+e.target.value;current.exos[i].sets[j][f]=f==="poids"&&v!==""?fromU(v,current.exos[i].exoId):v;saveCurrent();renderEtat()};
     inp.onchange=e=>{const{f,i,j}=e.target.dataset;if(f==="reps"&&e.target.value!==""&&S.profil.timerAuto!==false){const x=current.exos[i],last=+j===x.sets.length-1;startTimer(reposDefaut(),last?"Repos · exercice suivant":"Repos · série "+(+j+2))}}});
+  box.querySelectorAll("[data-unit]").forEach(b=>b.onclick=()=>{toggleUnit(current.exos[b.dataset.unit].exoId);renderExos(rf)});
   box.querySelectorAll("[data-done]").forEach(c=>c.onchange=()=>{const x=current.exos[c.dataset.done];x.done=c.checked;if(x.done)stopTimer();saveCurrent();renderExos(rf)});
   renderEtat();
   box.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{current.exos[b.dataset.add].sets.push({poids:"",reps:"",rpe:""});saveCurrent();renderExos(rf)});
@@ -644,7 +655,7 @@ function renderProfil(){
   <div class="card"><div class="row"><h3 class="grow">Exercices (${p.exercices.length})</h3></div>
     <div class="grid2" style="margin-top:8px"><label class="f">Nom<input id="ex-nom" placeholder="Ex. Chest press Technogym"></label><label class="f">Schéma moteur<select id="ex-pat">${Object.entries(PATTERNS).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}</select></label><label class="f">Matériel<select id="ex-eq">${Object.entries(EQUIP).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}</select></label><label class="f">Incrément (kg)<input type="number" step="0.5" id="ex-inc" value="2.5"></label></div>
     <div class="row" style="margin-top:8px;justify-content:flex-end"><button id="ex-add">Ajouter l'exercice</button></div>
-    <details style="margin-top:10px"><summary class="small">Voir la liste</summary><div class="tablewrap"><table style="margin-top:6px"><thead><tr><th>Exercice</th><th>Schéma</th><th>Matériel</th><th class="r">Incr.</th><th></th></tr></thead><tbody>${p.exercices.map(e=>`<tr><td>${e.nom} <button class="btn-sm play" data-anim="${e.id}">▶</button></td><td class="small">${PATTERNS[e.pattern]||""}</td><td class="small">${EQUIP[e.equip]||""}</td><td class="r">${e.incr}</td><td class="r"><button class="btn-sm btn-ghost" data-exdel="${e.id}">×</button></td></tr>`).join("")}</tbody></table></div></details>
+    <details style="margin-top:10px"><summary class="small">Voir la liste</summary><div class="tablewrap"><table style="margin-top:6px"><thead><tr><th>Exercice</th><th>Schéma</th><th>Matériel</th><th class="r">Incr.</th><th>Unité</th><th></th></tr></thead><tbody>${p.exercices.map(e=>`<tr><td>${e.nom} <button class="btn-sm play" data-anim="${e.id}">▶</button></td><td class="small">${PATTERNS[e.pattern]||""}</td><td class="small">${EQUIP[e.equip]||""}</td><td class="r">${e.incr}</td><td><button class="btn-sm btn-ghost" data-exunit="${e.id}">${e.unit||"kg"} ⇄</button></td><td class="r"><button class="btn-sm btn-ghost" data-exdel="${e.id}">×</button></td></tr>`).join("")}</tbody></table></div></details>
   </div>
   ${authCardHtml()}
   <div class="card"><h3>Méthode</h3><div class="small" style="margin-top:6px;display:flex;flex-direction:column;gap:6px">
@@ -652,6 +663,7 @@ function renderProfil(){
     <div><strong>Endurance / natation</strong> : force de soutien, 1–2 séances de salle + maison, RPE 7–8, peu de séries, repos longs, séance placée loin des nages clés. Poids du corps : progression aux reps puis au lest ou à la variante. Exercices lestés ou assistés : charge effective = poids du corps du jour + lest, ou − assistance ; progresser en assisté = réduire l'assistance.</div>
     <div><strong>Objectif daté (randonnée)</strong> : 4 phases à rebours depuis la date — reprise, base force (8 sem., 3×/sem.), spécifique montée-descente (8 sem., step-up, excentrique, portage, marches longues avec sac), affûtage (3 sem., une série de moins). Le programme de chaque phase se charge d'un bouton depuis l'onglet Séance.</div>
     <div><strong>Surcharge progressive</strong> par double progression : d'abord les reps dans la fourchette, puis la charge (incrément propre à chaque exercice).</div>
+    <div><strong>Ressenti</strong> après chaque série, sans aller à l'échec : <em>Facile</em> = tu en avais encore 4 ou plus sous le pied (RPE 6), <em>Juste</em> = 2 à 3 de plus possibles (RPE 7,5), <em>Dur</em> = 1 de plus, pas deux (RPE 9), <em>Échec</em> = aucune (RPE 10). En reprise, la bonne réponse est « Facile » ou « Juste » ; « Dur » veut dire que la charge était trop haute pour la fourchette.</div>
     <div><strong>e1RM</strong> = charge × (1 + reps effectives / 30), où les reps en réserve (10 − RPE) s'ajoutent aux reps réalisées. C'est l'indice suivi dans Progrès.</div>
     <div><strong>Autorégulation</strong> : sommeil, énergie et courbatures notés de 1 à 5 avant la séance modulent charges et nombre de séries.</div>
     <div><strong>Plateau</strong> : trois séances sans hausse du e1RM déclenchent un conseil de décharge ou de changement de fourchette.</div>
@@ -672,6 +684,7 @@ function renderProfil(){
   $("#club-ren").onclick=()=>{const c=p.clubs.find(z=>z.id===$("#club-sel").value);if(!c)return;const sel=$("#club-sel");const inp=document.createElement("input");inp.value=c.nom;inp.className="grow";sel.replaceWith(inp);inp.focus();inp.select();const done=()=>{c.nom=inp.value.trim()||c.nom;persistProfil();renderProfil()};inp.onblur=done;inp.onkeydown=e=>{if(e.key==="Enter")inp.blur()}};
   const cd=$("#club-del");if(cd)cd.onclick=()=>{const id=$("#club-sel").value;if(!cd.dataset.sure){cd.dataset.sure="1";cd.textContent="Confirmer ?";return}p.clubs=p.clubs.filter(z=>z.id!==id);if(p.clubActif===id)p.clubActif=p.clubs[0].id;window._clubEdit=p.clubActif;persistProfil();renderProfil()};
   $("#ex-add").onclick=()=>{const nom=$("#ex-nom").value.trim();if(!nom)return;p.exercices.push({id:"c_"+uid(),nom,pattern:$("#ex-pat").value,equip:$("#ex-eq").value,incr:+$("#ex-inc").value||2.5,custom:true});persistProfil();toast("Exercice ajouté");renderProfil()};
+  el.querySelectorAll("[data-exunit]").forEach(b=>b.onclick=()=>{toggleUnit(b.dataset.exunit);b.textContent=(exo(b.dataset.exunit).unit||"kg")+" ⇄"});
   el.querySelectorAll("[data-exdel]").forEach(b=>b.onclick=()=>{p.exercices=p.exercices.filter(e=>e.id!==b.dataset.exdel);persistProfil();renderProfil()});
   $("#btn-reset").onclick=()=>{const b=$("#btn-reset");if(!b.dataset.sure){b.dataset.sure="1";b.textContent="Confirmer l'effacement";return}S.seances.forEach(s=>dbDelete("seance",s.id));S.nutrition.forEach(n=>dbDelete("nutrition",n.date));S.seances=[];S.nutrition=[];saveLocal();render();toast("Carnet effacé")};
 }
@@ -936,10 +949,10 @@ function printSheet(sess){
   const html=`<h1>${progNom(sess.programmeId)}${sess.clubId&&sess.lieu!=="maison"?` <span style="font-weight:400;font-size:12pt">· ${clubDe(sess.clubId).nom}</span>`:""}</h1>
   <div class="meta">${new Date(sess.date+"T12:00").toLocaleDateString("fr-BE",{weekday:"long",day:"numeric",month:"long",year:"numeric"})} · ${S.profil.prenom||""} · poids du jour : ______ kg · Forme (1–5) : sommeil ___ énergie ___ courbatures ___${nage()?" fraîcheur natation ___":""}</div>
   <div class="meta">${[1,2,3,4].map(k=>`<span style="display:inline-block;width:9pt;height:9pt;background:var(--g${k});margin:0 3pt 0 8pt;vertical-align:-1pt"></span>${FAM_NOM[k]}`).join("")}</div>
-  ${sess.exos.map(x=>{const e=exo(x.exoId),rec=recommande(x.exoId,x.presc,rf),n=Math.max(1,x.presc.series+(rf.setDelta||0))+1;const col=e.assist?"Assist. kg":e.lestable?"Lest kg":"Kg";
+  ${sess.exos.map(x=>{const e=exo(x.exoId),rec=recommande(x.exoId,x.presc,rf),n=Math.max(1,x.presc.series+(rf.setDelta||0))+1;const u=unitOf(e.id),cv=kg=>u==="lb"?Math.round(kg/LB*10)/10:kg,col=(e.assist?"Assist. ":e.lestable?"Lest ":"")+u;
     return`<div class="exo-p" style="${famStyle(x.exoId)}"><h2>${e.nom} <span style="font-weight:400;font-size:10pt">— ${x.presc.series}×${x.presc.repMin}–${x.presc.repMax} · RPE ${x.presc.rpe}${x.origId?" · remplace "+exo(x.origId).nom:""}</span></h2>
-    <div class="reco">${rec.poids!=null?"<strong>Proposé : "+rec.poids+" "+(e.assist?"kg d'assistance":"kg")+"</strong> · ":""}${rec.texte.replace(/⚠.*$/,"")}${rec.last?"<br>Dernière fois ("+fmtDate(rec.last.date)+") : "+rec.last.sets.map(t=>(e.assist?"−":e.lestable?"+":"")+(t.poids||0)+"×"+t.reps+(t.rpe?"@"+t.rpe:"")).join(" · "):""}</div>
-    <table><thead><tr><th style="width:8%">#</th><th style="width:22%">${col}</th><th style="width:22%">Reps</th><th style="width:18%">RPE</th><th>Remarque</th></tr></thead><tbody>${Array.from({length:n},(_,j)=>`<tr><td>${j+1}</td><td></td><td></td><td></td><td></td></tr>`).join("")}</tbody></table></div>`}).join("")}
+    <div class="reco">${rec.poids!=null?"<strong>Proposé : "+cv(rec.poids)+" "+u+(e.assist?" d'assistance":"")+"</strong> · ":""}${rec.texte.replace(/⚠.*$/,"")}${rec.last?"<br>Dernière fois ("+fmtDate(rec.last.date)+") : "+rec.last.sets.map(t=>(e.assist?"−":e.lestable?"+":"")+cv(t.poids||0)+"×"+t.reps+(t.rpe?"@"+t.rpe:"")).join(" · ")+" "+u:""}</div>
+    <table><thead><tr><th style="width:8%">#</th><th style="width:22%">${col}</th><th style="width:22%">Reps</th><th style="width:18%">Ressenti F / J / D</th><th>Remarque</th></tr></thead><tbody>${Array.from({length:n},(_,j)=>`<tr><td>${j+1}</td><td></td><td></td><td></td><td></td></tr>`).join("")}</tbody></table></div>`}).join("")}
   <h2 style="border-left-color:#999">Notes de séance</h2><div class="notes"></div>
   <div class="meta" style="margin-top:8pt">Au retour : onglet Séance → Démarrer → recopier les séries → Valider. Les colonnes vides ne sont pas enregistrées.</div>`;
   let el=$("#print");if(!el){el=document.createElement("div");el.id="print";document.body.appendChild(el)}el.innerHTML=html;
