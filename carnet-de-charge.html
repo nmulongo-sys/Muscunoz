@@ -19,7 +19,7 @@
   --accent:#c2541b; --accent-fg:#ffffff; --accent-soft:#f6e3d8;
   --ok:#2e7d4f; --warn:#b4780a; --bad:#b3261e; --ok-soft:#dff0e5; --warn-soft:#fbeccb; --bad-soft:#f8dcd9;
   --chart-line:#c2541b; --chart-grid:#e3dfd6;
-  --g1:#2e7d4f; --g1-soft:#dff0e5; --g2:#c2541b; --g2-soft:#f6e3d8; --g3:#2f5fa8; --g3-soft:#dde7f5; --g4:#7a4ca0; --g4-soft:#ebe0f3;
+  --g5:#6b665c; --g5-soft:#e8e4dc; --g1:#2e7d4f; --g1-soft:#dff0e5; --g2:#c2541b; --g2-soft:#f6e3d8; --g3:#2f5fa8; --g3-soft:#dde7f5; --g4:#7a4ca0; --g4-soft:#ebe0f3;
   --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
   --body:"Barlow",Helvetica,Arial,sans-serif;
 }
@@ -27,12 +27,12 @@
   --bg:#17161a; --card:#232227; --fg:#efece6; --muted:#a39d92; --line:#3a383f;
   --accent:#f08a4b; --accent-fg:#1a1208; --accent-soft:#3b2619;
   --ok:#6ccf93; --warn:#f2c35b; --bad:#ff7b72; --ok-soft:#1d3327; --warn-soft:#3a2f12; --bad-soft:#3d1f1d;
-  --chart-line:#f08a4b; --chart-grid:#33313a; --g1:#6ccf93; --g1-soft:#1d3327; --g2:#f08a4b; --g2-soft:#3b2619; --g3:#7fa6e8; --g3-soft:#1c2a42; --g4:#c39be0; --g4-soft:#2e2238; color-scheme:dark}}
+  --chart-line:#f08a4b; --chart-grid:#33313a; --g1:#6ccf93; --g1-soft:#1d3327; --g2:#f08a4b; --g2-soft:#3b2619; --g3:#7fa6e8; --g3-soft:#1c2a42; --g4:#c39be0; --g4-soft:#2e2238; --g5:#a39d92; --g5-soft:#2a282e; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#17161a; --card:#232227; --fg:#efece6; --muted:#a39d92; --line:#3a383f;
   --accent:#f08a4b; --accent-fg:#1a1208; --accent-soft:#3b2619;
   --ok:#6ccf93; --warn:#f2c35b; --bad:#ff7b72; --ok-soft:#1d3327; --warn-soft:#3a2f12; --bad-soft:#3d1f1d;
-  --chart-line:#f08a4b; --chart-grid:#33313a; --g1:#6ccf93; --g1-soft:#1d3327; --g2:#f08a4b; --g2-soft:#3b2619; --g3:#7fa6e8; --g3-soft:#1c2a42; --g4:#c39be0; --g4-soft:#2e2238; color-scheme:dark}
+  --chart-line:#f08a4b; --chart-grid:#33313a; --g1:#6ccf93; --g1-soft:#1d3327; --g2:#f08a4b; --g2-soft:#3b2619; --g3:#7fa6e8; --g3-soft:#1c2a42; --g4:#c39be0; --g4-soft:#2e2238; --g5:#a39d92; --g5-soft:#2a282e; color-scheme:dark}
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;display:flex;flex-direction:column}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
@@ -151,10 +151,10 @@ details summary{cursor:pointer;font-weight:600}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
 /* ===================== Données de référence ===================== */
-const PATTERNS={PH:"Poussée horizontale",PV:"Poussée verticale",TH:"Tirage horizontal",TV:"Tirage vertical",GEN:"Genou dominant (squat)",HAN:"Hanche dominant (charnière)",BIC:"Biceps",TRI:"Triceps",MOL:"Mollets",ABD:"Tronc",EPA:"Épaule (coiffe, stabilité)",POR:"Portage (marche chargée)"};
-const FAMILLES={GEN:1,HAN:1,MOL:1,PH:2,PV:2,TRI:2,TH:3,TV:3,BIC:3,ABD:4,EPA:4,POR:4};const FAM_NOM={1:"Jambes & hanches",2:"Poussée",3:"Tirage",4:"Tronc & épaules"};
+const PATTERNS={PH:"Poussée horizontale",PV:"Poussée verticale",TH:"Tirage horizontal",TV:"Tirage vertical",GEN:"Genou dominant (squat)",HAN:"Hanche dominant (charnière)",BIC:"Biceps",TRI:"Triceps",MOL:"Mollets",ABD:"Tronc",EPA:"Épaule (coiffe, stabilité)",POR:"Portage (marche chargée)",CAR:"Cardio"};
+const FAMILLES={GEN:1,HAN:1,MOL:1,PH:2,PV:2,TRI:2,TH:3,TV:3,BIC:3,ABD:4,EPA:4,POR:4,CAR:5};const FAM_NOM={1:"Jambes & hanches",2:"Poussée",3:"Tirage",4:"Tronc & épaules",5:"Cardio"};
 const famOf=id=>FAMILLES[exo(id).pattern]||4;const famStyle=id=>`--gc:var(--g${famOf(id)});--gs:var(--g${famOf(id)}-soft)`;
-const EQUIP={barre:"Barre",halt:"Haltères",machine:"Machine",cable:"Poulie",pdc:"Poids du corps"};
+const EQUIP={barre:"Barre",halt:"Haltères",machine:"Machine",cable:"Poulie",pdc:"Poids du corps",cardio:"Cardio"};
 const BASE_EXOS=[
  ["dc_barre","Développé couché barre","PH","barre",2.5],["dc_halt","Développé couché haltères","PH","halt",2],["dc_machine","Développé convergent machine","PH","machine",5],["dc_incl_halt","Développé incliné haltères","PH","halt",2],["pompes","Pompes lestées","PH","pdc",2.5,"lest"],
  ["dm_barre","Développé militaire barre","PV","barre",2.5],["de_halt","Développé épaules haltères","PV","halt",2],["de_machine","Développé épaules machine","PV","machine",5],
@@ -171,6 +171,10 @@ const BASE_EXOS=[
  ["pallof","Pallof press poulie","ABD","cable",2.5],["dead_bug","Dead bug","ABD","pdc",0],["planche_lat","Planche latérale (secondes par côté)","ABD","pdc",0],
  ["rowing_inverse","Rowing inversé (table ou barre basse)","TH","pdc",0],["pont_uni","Pont fessier unilatéral","HAN","pdc",0],["pompes_pike","Pompes pike","PV","pdc",0],["pompes_pdc","Pompes","PH","pdc",0],["tractions_assist","Tractions assistées (élastique)","TV","pdc",2.5,"assist"],["squat_bulgare","Squat bulgare haltères","GEN","halt",1],
  // randonnée
+ // cardio (reps = minutes, charge = km/h ou niveau)
+ ["tapis_marche","Tapis : marche inclinée","CAR","cardio",0.5],["tapis_course","Tapis : course / fractionné","CAR","cardio",0.5],["aviron","Rameur","CAR","cardio",1],["escalier","Escalier (stairmaster)","CAR","cardio",1],["velo","Vélo","CAR","cardio",1],
+ // poids du corps maison
+ ["squat_pdc","Squat poids du corps (ou sac à dos)","GEN","pdc",0],["fentes_pdc","Fentes arrière poids du corps","GEN","pdc",0],["bulgare_pdc","Squat bulgare sur chaise","GEN","pdc",0],["step_up_pdc","Step-up sur chaise ou marche","GEN","pdc",0],["pont_fessier","Pont fessier deux jambes","HAN","pdc",0],["superman","Superman (extension lombaire)","HAN","pdc",0],["planche","Planche (secondes)","ABD","pdc",0],["dips_chaise","Dips sur chaise","TRI","pdc",0],
  ["step_up","Step-up sur banc (haltères)","GEN","halt",1],["step_down","Descente de banc contrôlée (excentrique 3 s)","GEN","pdc",0],["fentes_marche","Fentes marchées haltères (pas)","GEN","halt",1],["farmer","Marche du fermier (haltères, mètres)","POR","halt",2]
 ].map(([id,nom,pattern,equip,incr,flag])=>({id,nom,pattern,equip,incr,lestable:flag==="lest",assist:flag==="assist"}));
 const BASE_PROGS=[
@@ -190,8 +194,15 @@ const NAGE_PROGS=[
  {id:"nage_b",nom:"Salle B — tractions & charnière",exos:[["tractions_assist",3,4,8,8],["sdt_roumain",3,6,8,7.5],["row_halt",3,6,10,7.5],["de_halt",2,8,12,7],["ext_tri",2,10,12,7],["mollets_presse",2,12,20,7]]},
  {id:"nage_m",nom:"Maison — poids du corps (20 min)",lieu:"maison",exos:[["pompes_pdc",3,8,15,8],["rowing_inverse",3,8,12,8],["pont_uni",3,10,15,7],["dead_bug",2,8,12,7],["planche_lat",2,20,45,7],["ytw",2,8,12,6],["rot_ext",2,12,15,6]]}
 ].map(p=>({id:p.id,nom:p.nom,lieu:p.lieu,exos:p.exos.map(([exoId,series,repMin,repMax,rpe])=>({exoId,series,repMin,repMax,rpe}))}));
-const NIVEAUX={reprise:"Reprise (débutant ou retour après une longue pause)",inter:"Intermédiaire (pratique régulière depuis 6 mois et plus)",nage:"Endurance / natation (la salle soutient le sport principal)"};
-const PROGS_PAR_NIVEAU={reprise:REPRISE_PROGS,inter:BASE_PROGS,nage:NAGE_PROGS},JOURS_PAR_NIVEAU={reprise:3,inter:4,nage:2};
+// Full body débutante : chaque séance ≈ 45 min = 15 min de cardio (1/3) + 30 min de renforcement (2/3). Versions salle et maison, à choisir le jour même.
+const FULL_PROGS=[
+ {id:"fb_s_a",nom:"Salle A — corps entier",lieu:"salle",exos:[["aviron",1,15,15,6],["presse",3,10,15,7],["tirage_poulie",3,10,15,7],["dc_halt",3,10,15,7],["leg_curl",2,12,15,7],["pallof",2,10,12,7],["planche_lat",2,30,45,7]]},
+ {id:"fb_s_b",nom:"Salle B — corps entier",lieu:"salle",exos:[["escalier",1,15,15,6],["squat_bulgare",3,8,12,7],["row_cable",3,10,15,7],["de_halt",3,10,15,7],["hip_thrust",3,10,15,7],["face_pull",2,12,15,6.5],["dead_bug",2,8,12,7]]},
+ {id:"fb_m_a",nom:"Maison A — corps entier",lieu:"maison",exos:[["tapis_marche",1,15,15,6],["squat_pdc",3,12,20,7],["pompes_pdc",3,8,15,7],["rowing_inverse",3,8,12,7],["pont_uni",3,10,15,7],["planche_lat",2,30,45,7],["dead_bug",2,8,12,7]]},
+ {id:"fb_m_b",nom:"Maison B — corps entier",lieu:"maison",exos:[["tapis_course",1,15,15,6],["fentes_pdc",3,10,16,7],["pompes_pike",3,6,12,7],["dips_chaise",3,8,15,7],["step_up_pdc",3,10,15,7],["superman",2,10,15,6],["planche",2,30,60,7]]}
+].map(p=>({id:p.id,nom:p.nom,lieu:p.lieu,exos:p.exos.map(([exoId,series,repMin,repMax,rpe])=>({exoId,series,repMin,repMax,rpe}))}));
+const NIVEAUX={fullbody:"Full body débutante (maison ou salle, 1/3 cardio + 2/3 renfo)",reprise:"Reprise (débutant ou retour après une longue pause)",inter:"Intermédiaire (pratique régulière depuis 6 mois et plus)",nage:"Endurance / natation (la salle soutient le sport principal)"};
+const PROGS_PAR_NIVEAU={reprise:REPRISE_PROGS,inter:BASE_PROGS,nage:NAGE_PROGS,fullbody:FULL_PROGS},JOURS_PAR_NIVEAU={reprise:3,inter:4,nage:2,fullbody:3};
 
 /* ===================== État ===================== */
 let S={profil:{prenom:"",poids:95,taille:178,age:45,sexe:"H",activite:1.375,objectif:"maintien",niveau:"reprise",joursSemaine:3,objectif_evt:{nom:"Chemin de Stevenson — Luc → Florac",date:"2027-04-27"},exercices:BASE_EXOS,programmes:REPRISE_PROGS,machinesIndispo:[]},seances:[],nutrition:[]};
@@ -209,10 +220,14 @@ const fmtU=(kg,id)=>(kg==null||kg==="")?"":(Math.round(toU(kg,id)*10)/10)+"";
 function toggleUnit(id){const e=exo(id);e.unit=e.unit==="lb"?"kg":"lb";persistProfil()}
 const RESSENTI=[["","?"],["6","Facile"],["7.5","Juste"],["9","Dur"],["10","Échec"]];
 function ressentiLabel(r){r=+r;if(!r)return"";return r<=6.5?"facile":r<=8?"juste":r<=9.5?"dur":"échec"}
-const reprise=()=>S.profil.niveau==="reprise";
+const reprise=()=>S.profil.niveau==="reprise"||S.profil.niveau==="fullbody";
+const fullbody=()=>S.profil.niveau==="fullbody";
+const repriseStricte=()=>S.profil.niveau==="reprise";
 const nage=()=>S.profil.niveau==="nage";
 const filled=t=>t.poids!==""&&t.poids!=null&&!isNaN(t.poids)&&t.reps; // poids 0 = poids du corps sans lest
 const isPdc=id=>exo(id).equip==="pdc";
+const isCar=id=>exo(id).pattern==="CAR";
+const faisableMaison=e=>e.equip==="pdc"||e.id==="tapis_marche"||e.id==="tapis_course";
 const nbValide=()=>S.seances.filter(s=>s.valide).length;
 let current=null; // séance en cours (non sauvegardée tant que non validée)
 let saveTimers={};const LS="cdc.";
@@ -256,10 +271,11 @@ async function pullAll(){
 }
 async function initDb(){
   if(!window.supabase||!SUPA.url.startsWith("http")){setSync("local uniquement");return}
+  if(S.profil.compteFacultatif)setSync("");
   sb=window.supabase.createClient(SUPA.url,SUPA.key);
-  sb.auth.onAuthStateChange((ev,session)=>{sbUser=session?.user||null;if(ev==="PASSWORD_RECOVERY"){showTab("profil");toast("Définis ton nouveau mot de passe dans Compte")}if(sbUser){setSync("connecté…");pullAll()}else setSync("non connecté");renderProfil()});
+  sb.auth.onAuthStateChange((ev,session)=>{sbUser=session?.user||null;if(ev==="PASSWORD_RECOVERY"){showTab("profil");toast("Définis ton nouveau mot de passe dans Compte")}if(sbUser){setSync("connecté…");pullAll()}else setSync(S.profil.compteFacultatif?"":"non connecté");renderProfil()});
   const{data}=await sb.auth.getSession();sbUser=data?.session?.user||null;
-  if(sbUser)pullAll();else setSync("non connecté");
+  if(sbUser)pullAll();else setSync(S.profil.compteFacultatif?"":"non connecté");
 }
 async function authAction(mode){
   const email=$("#au-email").value.trim(),pw=$("#au-pw").value,msg=$("#au-msg");msg.textContent="";
@@ -288,16 +304,24 @@ function effLoad(set,e,bw){if(!e||e.equip!=="pdc"&&!e.assist)return +set.poids||
 function e1rm(set){if(set.eff!=null){if(!set.eff||!set.reps)return 0;const rir=Math.max(0,10-(set.rpe||8));return set.eff*(1+(set.reps+rir)/30)}if(!set.poids||!set.reps)return 0;const rir=Math.max(0,10-(set.rpe||8));const r=set.reps+rir;return set.poids*(1+r/30)}
 function bestE1rm(sets){return Math.max(0,...sets.map(e1rm))}
 // Métrique de progression : e1RM si charge, sinon (poids du corps sans lest) meilleure série en reps
-const sansLest=sets=>sets.every(s=>!s.poids&&!s.bw);
+const sansLest=sets=>sets.every(s=>!s.poids&&!s.bw)||sets.some(s=>s.car);
 function metric(sets){return sansLest(sets)?Math.max(0,...sets.map(s=>+s.reps||0)):bestE1rm(sets)}
-function metricUnit(sets){return sansLest(sets)?"reps":"kg"}
+function metricUnit(sets){return sets.some(s=>s.car)?"min":sansLest(sets)?"reps":"kg"}
 function histo(exoId){ // séances validées contenant cet exercice, chrono
-  return S.seances.filter(s=>s.valide).sort((a,b)=>a.date.localeCompare(b.date)).map(s=>{const x=s.exos.find(e=>e.exoId===exoId&&e.sets.some(filled));if(!x)return null;const e=exo(exoId),bw=s.poidsCorps||S.profil.poids;return{date:s.date,seanceId:s.id,presc:x.presc,sets:x.sets.filter(filled).map(t=>({...t,eff:effLoad(t,e,bw),bw:!!(e.assist||e.lestable)}))}}).filter(Boolean);
+  return S.seances.filter(s=>s.valide).sort((a,b)=>a.date.localeCompare(b.date)).map(s=>{const x=s.exos.find(e=>e.exoId===exoId&&e.sets.some(filled));if(!x)return null;const e=exo(exoId),bw=s.poidsCorps||S.profil.poids;return{date:s.date,seanceId:s.id,presc:x.presc,sets:x.sets.filter(filled).map(t=>({...t,eff:effLoad(t,e,bw),bw:!!(e.assist||e.lestable),car:e.pattern==="CAR"}))}}).filter(Boolean);
 }
 function readinessFactor(r){if(!r)return{f:1,setDelta:0,label:""};const ks=["sommeil","energie","courbatures"].concat(nage()?["sport"]:[]);const m=ks.reduce((a,k)=>a+(r[k]||4),0)/ks.length;if(m>=4)return{f:1,setDelta:0,label:"Forme bonne : prescription normale"};if(m>=3)return{f:1,setDelta:0,label:"Forme moyenne : garde les charges, ne force pas le RPE"};if(m>=2.2)return{f:.95,setDelta:-1,label:"Forme basse : charges −5 %, une série de moins par exercice"};return{f:.9,setDelta:-1,label:"Fatigue marquée : charges −10 %, une série de moins. Envisage une séance légère"}}
 // Recommandation par double progression
 function recommande(exoId,presc,rf){
   const e=exo(exoId),h=histo(exoId),rp=reprise();
+  if(e.pattern==="CAR"){ // cardio : reps = minutes ; progression par la durée puis l'intensité
+    const cible=presc.repMax||15;if(!h.length)return{poids:null,texte:"Cardio "+cible+" min, allure « conversation possible » (tu peux parler, pas chanter). Note les minutes et, si tu veux, la vitesse ou le niveau.",tag:"nouveau"};
+    const last=h[h.length-1],mn=Math.max(...last.sets.map(t=>+t.reps||0)),it=Math.max(...last.sets.map(t=>+t.poids||0)),rp2=last.sets.reduce((a,t)=>a+(+t.rpe||presc.rpe),0)/last.sets.length;
+    let texte,tag="reps",poids=it||null;
+    if(rp2<=6.5&&it){poids=round(it+(e.incr||0.5),e.incr||0.5);texte="Dernière fois "+mn+" min à "+it+", facile : monte à "+poids+". Une séance sur trois, remplace par 6 × (1 min soutenu / 1 min calme).";tag="progresse"}
+    else if(rp2>=9){texte="Dernière fois "+mn+" min, dur : garde la même durée et baisse un peu l'intensité ; le cardio ne doit pas manger le renforcement qui suit.";tag="recule"}
+    else texte="Dernière fois "+mn+" min"+(it?" à "+it:"")+". Garde "+cible+" min ; quand c'est « Facile » deux fois de suite, monte l'intensité d'un cran.";
+    return{poids,texte,tag,last}}
   if(e.assist){ // exercice assisté : la charge saisie est l'ASSISTANCE, progresser = la réduire
     const bw=S.profil.poids;
     if(!h.length)return{poids:null,texte:"Assisté : note l'assistance en kg (machine : la charge sélectionnée ; élastique : sa valeur indicative). Charge effective = ton poids du jour ("+bw+" kg) − assistance. Progresser = réduire l'assistance.",tag:"nouveau"};
@@ -335,7 +359,7 @@ function recommande(exoId,presc,rf){
   return{poids:round(poids,step),texte,tag,last};
 }
 // Substituts : même schéma moteur, différents de l'exercice d'origine, machines indisponibles exclues
-function substituts(exoId,clubId){const e=exo(exoId),maison=current&&current.lieu==="maison",cid=clubId||(current&&current.clubId)||S.profil.clubActif;return S.profil.exercices.filter(x=>x.pattern===e.pattern&&x.id!==exoId&&!indispoAu(cid,x.id)&&(!maison||x.equip==="pdc"))}
+function substituts(exoId,clubId){const e=exo(exoId),maison=current&&current.lieu==="maison",cid=clubId||(current&&current.clubId)||S.profil.clubActif;return S.profil.exercices.filter(x=>x.pattern===e.pattern&&x.id!==exoId&&!indispoAu(cid,x.id)&&(!maison||faisableMaison(x)))}
 // Adapte une séance au club : remplace les exercices indisponibles par un substitut disponible du même schéma (séries non encore saisies seulement)
 function adapterAuClub(sess){const c=clubDe(sess.clubId);if(!c||sess.lieu==="maison")return[];const rempl=[];sess.exos.forEach(x=>{if(x.sets.some(filled))return;const base=x.origId||x.exoId;if(!indispoAu(c.id,x.exoId))return;const subs=substituts(base,c.id).filter(s=>s.id!==x.exoId);const pref=subs.find(s=>histo(s.id).length)||subs[0];if(pref){rempl.push(exo(x.exoId).nom+" → "+pref.nom);x.origId=base;x.exoId=pref.id;x.sets.forEach(t=>{t.poids="";t.reps="";t.rpe=""})}else rempl.push(exo(x.exoId).nom+" : aucun substitut, à faire ailleurs")});return rempl}
 // Estimation de charge sur un substitut à partir de l'historique croisé
@@ -381,7 +405,7 @@ function conseilNutrition(){
 }
 
 /* ===================== Rendu ===================== */
-function render(){$("#hdr-sub").textContent=reprise()?"Mode reprise · volume avant intensité":nage()?"Force de soutien · natation":"Surcharge progressive · autorégulation";renderSeance();renderProgramme();renderProgression();renderNutrition();renderProfil()}
+function render(){$("#hdr-sub").textContent=repriseStricte()?"Mode reprise · volume avant intensité":fullbody()?"Full body · 1/3 cardio · 2/3 renfo":nage()?"Force de soutien · natation":"Surcharge progressive · autorégulation";renderSeance();renderProgramme();renderProgression();renderNutrition();renderProfil()}
 function showTab(id){document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.toggle("on",b.dataset.tab===id));document.querySelectorAll("main>section").forEach(s=>s.classList.toggle("on",s.id==="tab-"+id));try{localStorage.setItem(LS+"tab",id)}catch(e){};render();$("main").scrollTop=0}
 document.querySelectorAll("nav.tabs button").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(["seance","programme","progression","nutrition","profil"].includes(h))showTab(h)});
@@ -391,26 +415,28 @@ function renderSeance(){
   const el=$("#tab-seance");
   if(!current){
     const derniere=S.seances.filter(s=>s.valide).sort((a,b)=>b.date.localeCompare(a.date))[0];
-    const next=prochainProgramme();
+    const next=prochainProgramme(aDesProgsMaison()?(lieuChoisi||"salle"):null);
     el.innerHTML=`
     ${objectifCardHtml()}
     <div class="card">
       <div class="eyebrow">Prochaine séance suggérée</div>
       <div class="row" style="margin-top:6px"><h2 class="grow">${next?next.nom:"Aucun programme"}</h2></div>
       <p class="small muted" style="margin:6px 0 10px">${derniere?"Dernière séance : "+fmtDate(derniere.date)+" · "+(progNom(derniere.programmeId)):"Aucune séance enregistrée encore."} · ${S.profil.joursSemaine} séances/semaine prévues</p>
+      ${aDesProgsMaison()?`<div class="row" style="margin-bottom:8px"><span class="small muted">Aujourd'hui :</span><button class="btn-sm ${(lieuChoisi||"salle")==="maison"?"btn-primary":""}" data-lieu="maison">🏠 À la maison</button><button class="btn-sm ${(lieuChoisi||"salle")==="salle"?"btn-primary":""}" data-lieu="salle">🏋️ Au Basic-Fit</button></div>`:""}
       <div class="row">
         <select id="sel-prog" class="grow">${S.profil.programmes.map(p=>`<option value="${p.id}" ${next&&p.id===next.id?"selected":""}>${p.nom}</option>`).join("")}</select>
         <button class="btn-primary" id="btn-start">Démarrer</button>
       </div>
-      <div class="row" style="margin-top:8px"><label class="f grow">Club du jour<select id="sel-club">${(ensureClubs(),S.profil.clubs).map(c=>`<option value="${c.id}" ${c.id===S.profil.clubActif?"selected":""}>${c.nom}${c.indispo.length?" · "+c.indispo.length+" machine(s) absente(s)":""}</option>`).join("")}</select></label></div>
+      <div class="row" style="margin-top:8px" ${aDesProgsMaison()&&(lieuChoisi||"salle")==="maison"?"hidden":""}><label class="f grow">Club du jour<select id="sel-club">${(ensureClubs(),S.profil.clubs).map(c=>`<option value="${c.id}" ${c.id===S.profil.clubActif?"selected":""}>${c.nom}${c.indispo.length?" · "+c.indispo.length+" machine(s) absente(s)":""}</option>`).join("")}</select></label></div>
       <div class="row" style="margin-top:8px"><button class="btn-sm" id="btn-print-next">Imprimer la fiche de cette séance</button><span class="small muted">Grille vierge pour noter à la salle, à retranscrire au retour.</span></div>
     </div>
     ${S.seances.length===0?`<div class="card empty"><h3>Carnet vide</h3><p>Chaque séance validée alimente les recommandations de charge, l'analyse de plateau et les substitutions. Pour voir l'application en fonctionnement avant ta première séance :</p><button id="btn-demo">Charger 4 semaines d'exemple</button></div>`:""}
     ${historiqueHtml()}`;
     bindObjectif();
+    el.querySelectorAll("[data-lieu]").forEach(b=>b.onclick=()=>{lieuChoisi=b.dataset.lieu;try{localStorage.setItem("lieu",lieuChoisi)}catch(e){};renderSeance()});
     $("#btn-start").onclick=()=>startSeance($("#sel-prog").value,$("#sel-club").value);
     $("#sel-club").onchange=e=>{S.profil.clubActif=e.target.value;persistProfil()};
-    $("#btn-print-next").onclick=()=>{const pid=$("#sel-prog").value,p=S.profil.programmes.find(x=>x.id===pid);if(!p)return;const oi=objectifInfo();const bonus=(reprise()&&nbValide()>=6?1:0)+(oi&&oi.phase&&oi.phase.setDelta||0);const sh={date:today(),programmeId:pid,clubId:$("#sel-club").value,lieu:p.lieu||"salle",readiness:null,exos:p.exos.map(e=>({exoId:e.exoId,origId:null,presc:{...e,series:Math.max(1,e.series+bonus)},sets:[]}))};adapterAuClub(sh);printSheet(sh)};
+    $("#btn-print-next").onclick=()=>{const pid=$("#sel-prog").value,p=S.profil.programmes.find(x=>x.id===pid);if(!p)return;const oi=objectifInfo();const bonus=(repriseStricte()&&nbValide()>=6?1:0)+(oi&&oi.phase&&oi.phase.setDelta||0);const sh={date:today(),programmeId:pid,clubId:$("#sel-club").value,lieu:p.lieu||"salle",readiness:null,exos:p.exos.map(e=>({exoId:e.exoId,origId:null,presc:{...e,series:Math.max(1,e.series+bonus)},sets:[]}))};adapterAuClub(sh);printSheet(sh)};
     const d=$("#btn-demo");if(d)d.onclick=chargerDemo;
     el.querySelectorAll("[data-del-seance]").forEach(b=>b.onclick=()=>{const id=b.dataset.delSeance;if(b.dataset.sure){S.seances=S.seances.filter(s=>s.id!==id);saveLocal();dbDelete("seance",id);render()}else{b.dataset.sure="1";b.textContent="Confirmer ?"}});
     return;
@@ -423,18 +449,23 @@ function renderSeance(){
     ${current.lieu!=="maison"?`<div class="row" style="margin-top:8px"><label class="f grow">Club<select id="cur-club">${(ensureClubs(),S.profil.clubs).map(c=>`<option value="${c.id}" ${c.id===current.clubId?"selected":""}>${c.nom}</option>`).join("")}</select></label></div>`:""}
     <div class="small muted" id="etat-seance" style="margin-top:8px"></div>
     <div class="row" style="margin-top:8px"><button class="btn-sm" id="btn-repos">⏱ Repos</button><button class="btn-sm" id="btn-print">Imprimer la fiche</button><span class="grow"></span><button class="btn-sm btn-ghost" id="btn-abandon">Abandonner</button></div>
-    <div class="legend" style="margin-top:8px">${[1,2,3,4].map(k=>`<span style="--gc:var(--g${k})">${FAM_NOM[k]}</span>`).join("")}</div>
+    <div class="legend" style="margin-top:8px">${(current.exos.some(x=>isCar(x.exoId))?[5,1,2,3,4]:[1,2,3,4]).map(k=>`<span style="--gc:var(--g${k})">${FAM_NOM[k]}</span>`).join("")}</div>
   </div>
   <div class="card">
     <div class="eyebrow">Forme du jour (autorégulation)</div>
     <div class="readiness" style="margin-top:8px">${["sommeil","energie","courbatures"].concat(nage()?["sport"]:[]).map(k=>`<div><div class="small muted">${{sommeil:"Sommeil",energie:"Énergie",courbatures:"Courbatures (5 = aucune)",sport:"Fraîcheur après natation/vélo (5 = frais)"}[k]}</div><div class="scale" data-k="${k}">${[1,2,3,4,5].map(v=>`<button class="${current.readiness[k]===v?"on":""}" data-v="${v}">${v}</button>`).join("")}</div></div>`).join("")}</div>
     <div class="advice ${rf.f<1?"warn":"ok"}" style="margin-top:10px">${rf.label}</div>
   </div>
-  ${reprise()?`<div class="card"><div class="eyebrow">Consignes de reprise · séance n°${nbValide()+1}</div><div class="small" style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
+  ${repriseStricte()?`<div class="card"><div class="eyebrow">Consignes de reprise · séance n°${nbValide()+1}</div><div class="small" style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
     <div>Arrête chaque série avec 3–4 reps en réserve : ressenti « Facile » ou « Juste ». « Dur », c'est trop lourd pour la fourchette.</div>
     <div>2 minutes de repos entre les séries, 48 h entre deux séances. ${nbValide()<6?"2 séries par exercice jusqu'à la 6e séance, puis 3.":"3 séries par exercice."}</div>
     <div>Des courbatures le lendemain sont normales les 2 premières semaines ; une douleur articulaire ne l'est pas : réduis la charge ou change d'exercice (bouton « Machine prise »).</div>
     ${nbValide()>=18?`<div><strong>18 séances validées :</strong> tu peux passer au niveau Intermédiaire dans Profil pour débloquer le programme haut/bas et les charges libres.</div>`:""}
+  </div></div>`:""}
+  ${fullbody()?`<div class="card"><div class="eyebrow">Full body · ${current.lieu==="maison"?"maison":"salle"} · séance n°${nbValide()+1}</div><div class="small" style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
+    <div>Un tiers cardio, deux tiers renforcement : ${current.lieu==="maison"?"15 min de tapis":"15 min au choix (rameur, escalier, tapis, vélo — bouton « Machine prise » pour changer)"} puis 30 min de renfo. Le cardio sert d'échauffement : allure où tu peux parler.</div>
+    <div>Chaque série s'arrête avec 2–3 reps de réserve (« Facile » ou « Juste »). Aucune série à l'échec les 6 premières semaines.</div>
+    <div>Alterne A et B, 3 fois par semaine, jamais deux jours de suite. Maison ou salle se décide le jour même : les deux versions travaillent les mêmes schémas moteurs.</div>
   </div></div>`:""}
   ${nage()?`<div class="card"><div class="eyebrow">Consignes force de soutien · natation</div><div class="small" style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
     <div>Objectif : plus de force par coup de bras (tirage, grand dorsal, triceps), des hanches qui tiennent la ligne d'eau, des épaules qui encaissent le volume. Pas de recherche de volume musculaire ni de brûlure.</div>
@@ -458,10 +489,12 @@ function renderSeance(){
   renderExos(rf);
 }
 function progNom(id){const p=S.profil.programmes.find(p=>p.id===id);return p?p.nom:"Séance libre"}
-function prochainProgramme(){const ps=S.profil.programmes;if(!ps.length)return null;const last=S.seances.filter(s=>s.valide).sort((a,b)=>b.date.localeCompare(a.date))[0];if(!last)return ps[0];const i=ps.findIndex(p=>p.id===last.programmeId);return ps[(i+1)%ps.length]}
+function prochainProgramme(lieu){let ps=S.profil.programmes;if(!ps.length)return null;if(lieu){const f=ps.filter(p=>(p.lieu||"salle")===lieu);if(f.length)ps=f}const last=S.seances.filter(s=>s.valide&&ps.some(p=>p.id===s.programmeId)).sort((a,b)=>b.date.localeCompare(a.date))[0];if(!last)return ps[0];const i=ps.findIndex(p=>p.id===last.programmeId);return ps[(i+1)%ps.length]}
+let lieuChoisi=null;try{lieuChoisi=localStorage.getItem("lieu")||null}catch(e){}
+function aDesProgsMaison(){return S.profil.programmes.some(p=>p.lieu==="maison")&&S.profil.programmes.some(p=>(p.lieu||"salle")==="salle")}
 function startSeance(progId,clubId){
   const p=S.profil.programmes.find(x=>x.id===progId);ensureClubs();clubId=clubId||S.profil.clubActif;if(clubId!==S.profil.clubActif){S.profil.clubActif=clubId;persistProfil()}
-  const oi=objectifInfo();const bonus=(reprise()&&nbValide()>=6?1:0)+(oi&&oi.phase&&oi.phase.setDelta||0); // reprise : 2 séries puis 3 ; affûtage : une de moins
+  const oi=objectifInfo();const bonus=(repriseStricte()&&nbValide()>=6?1:0)+(oi&&oi.phase&&oi.phase.setDelta||0); // reprise : 2 séries puis 3 ; affûtage : une de moins
   current={id:uid(),date:today(),startedAt:Date.now(),programmeId:progId,clubId,lieu:p&&p.lieu||"salle",readiness:{sommeil:4,energie:4,courbatures:4},note:"",valide:false,
     exos:(p?p.exos:[]).map(e=>({exoId:e.exoId,origId:null,presc:{...e,series:Math.max(1,e.series+bonus)},sets:Array.from({length:Math.max(1,e.series+bonus)},()=>({poids:"",reps:"",rpe:""}))}))};
   const r=adapterAuClub(current);if(r.length)toast("Adapté au club : "+r.join(" · "));
@@ -470,7 +503,7 @@ function startSeance(progId,clubId){
 function saveCurrent(){try{localStorage.setItem(LS+"current",JSON.stringify(current))}catch(e){};if(current)dbWrite("courant","courant",current)}
 function clearCurrent(){current=null;try{localStorage.removeItem(LS+"current")}catch(e){};clearTimeout(saveTimers["courant/courant"]);dbDelete("courant","courant")}
 // Estimation du temps restant : séries non saisies × (≈40 s d'effort + repos) + 45 s de mise en place par exercice restant
-function tempsRestant(){const repos=reposDefaut();let sec=0,restants=0;current.exos.forEach(x=>{if(x.done)return;const todo=x.sets.filter(t=>!filled(t)).length;if(!todo)return;restants++;sec+=45+todo*40+(todo-1)*repos+(x.sets.some(filled)?0:repos)});return{min:Math.round(sec/60),restants,total:current.exos.length,faits:current.exos.filter(x=>x.done||(x.sets.length&&x.sets.every(filled))).length}}
+function tempsRestant(){const repos=reposDefaut();let sec=0,restants=0;current.exos.forEach(x=>{if(x.done)return;const todo=x.sets.filter(t=>!filled(t)).length;if(!todo)return;restants++;if(isCar(x.exoId)){sec+=60*(x.presc.repMax||15)*todo+60;return}sec+=45+todo*40+(todo-1)*repos+(x.sets.some(filled)?0:repos)});return{min:Math.round(sec/60),restants,total:current.exos.length,faits:current.exos.filter(x=>x.done||(x.sets.length&&x.sets.every(filled))).length}}
 function renderEtat(){const el=$("#etat-seance");if(!el||!current)return;const t=tempsRestant(),dep=current.startedAt?Math.round((Date.now()-current.startedAt)/60000):null;el.innerHTML=`<span class="num" style="font-size:1.3rem">${t.faits}/${t.total}</span> exercices faits${t.restants?` · <strong>≈ ${t.min} min</strong> restantes`:" · séance complète, valide-la"}${dep!=null&&dep<600?` · démarrée il y a ${dep} min`:""}`}
 setInterval(()=>{if(current&&$("#etat-seance"))renderEtat()},30000);
 function renderExos(rf){
@@ -482,19 +515,19 @@ function renderExos(rf){
     if(x.done)return `<div class="exo" data-i="${i}" style="${famStyle(x.exoId)};opacity:.75">
       <div class="row"><label class="row" style="gap:8px;cursor:pointer"><input type="checkbox" checked data-done="${i}" style="width:auto"><strong>${e.nom}</strong></label><span class="small muted grow">${x.sets.filter(filled).map(s=>fmtU(s.poids||0,e.id)+"×"+s.reps).join(" · ")||"sans séries"} ${unitOf(e.id)}</span><span class="pill ok">terminé</span></div></div>`;
     return `<div class="exo" data-i="${i}" style="${famStyle(x.exoId)}">
-      <div class="row"><div class="grow"><h3><label style="cursor:pointer"><input type="checkbox" data-done="${i}" style="width:auto;margin-right:6px" title="Exercice terminé"></label>${e.nom} <button class="btn-sm play" data-anim="${e.id}" title="Voir le mouvement">▶</button></h3><div class="small muted"><span class="fam">${FAM_NOM[famOf(x.exoId)]}</span> ${x.presc.series}×${x.presc.repMin}–${x.presc.repMax} · visé : ${ressentiLabel(x.presc.rpe)||"juste"} · ${PATTERNS[e.pattern]||""} ${x.origId?`· <span class="pill warn">remplace ${exo(x.origId).nom}</span>`:""}</div></div>
+      <div class="row"><div class="grow"><h3><label style="cursor:pointer"><input type="checkbox" data-done="${i}" style="width:auto;margin-right:6px" title="Exercice terminé"></label>${e.nom} <button class="btn-sm play" data-anim="${e.id}" title="Voir le mouvement">▶</button></h3><div class="small muted"><span class="fam">${FAM_NOM[famOf(x.exoId)]}</span> ${isCar(e.id)?x.presc.repMax+" min · allure conversation":x.presc.series+"×"+x.presc.repMin+"–"+x.presc.repMax+" · visé : "+(ressentiLabel(x.presc.rpe)||"juste")} · ${PATTERNS[e.pattern]||""} ${x.origId?`· <span class="pill warn">remplace ${exo(x.origId).nom}</span>`:""}</div></div>
         <button class="btn-sm" data-sub="${i}">${x.origId?"Autre substitut":current.lieu==="maison"?"Variante":"Machine prise"}</button></div>
       ${sub?`<div class="advice warn">${sub.texte}${sub.poids?` <strong>≈ ${sub.poids} kg</strong>`:""}</div>`:""}
       <div class="advice ${tagCls}">${rec.poids?`<strong class="num">${fmtU(rec.poids,e.id)} ${unitOf(e.id)}</strong> · `:""}${unitOf(e.id)==="lb"?rec.texte.replace(/(\d+(?:[.,]\d+)?) kg/g,(m,n)=>fmtU(+n.replace(",","."),e.id)+" lb"):rec.texte}</div>
       ${rec.last?`<div class="small muted">Dernière fois (${fmtDate(rec.last.date)}) : ${rec.last.sets.map(s=>(e.assist?"−"+fmtU(+s.poids||0,e.id)+"×":e.lestable?"+"+fmtU(+s.poids||0,e.id)+"×":s.poids?fmtU(s.poids,e.id)+"×":"")+s.reps+(s.rpe?" "+ressentiLabel(s.rpe):"")).join(" · ")} ${unitOf(e.id)}${sansLest(rec.last.sets)?"":" · e1RM "+Math.round(bestE1rm(rec.last.sets))+" kg"+(e.assist||e.lestable?" (poids du corps inclus)":"")}</div>`:""}
-      <div class="sets"><span class="h">#</span><span class="h">${e.assist?"assist. ":e.lestable?"lest ":""}<button class="btn-sm btn-ghost" data-unit="${i}" title="Basculer kg / lb pour cet exercice" style="padding:1px 6px;font-size:.7rem">${unitOf(e.id)} ⇄</button></span><span class="h">reps</span><span class="h">ressenti</span><span></span>
-      ${x.sets.map((s,j)=>`<span class="num">${j+1}</span><input type="number" step="0.5" inputmode="decimal" id="p-${i}-${j}" value="${fmtU(s.poids,e.id)}" placeholder="${rec.poids!=null?fmtU(rec.poids,e.id):(e.equip==="pdc"||e.assist?"0":"")}" data-f="poids" data-i="${i}" data-j="${j}"><input type="number" inputmode="numeric" id="r-${i}-${j}" value="${s.reps}" placeholder="${x.presc.repMin}" data-f="reps" data-i="${i}" data-j="${j}"><select id="e-${i}-${j}" data-f="rpe" data-i="${i}" data-j="${j}" style="padding:6px 2px;text-align:center">${RESSENTI.map(([v,l])=>`<option value="${v}" ${String(s.rpe)===v?"selected":""}>${l}</option>`).join("")}</select><button class="btn-sm btn-ghost" data-rm="${i}:${j}" title="Retirer">×</button>`).join("")}</div>
+      <div class="sets"><span class="h">#</span><span class="h">${isCar(e.id)?"km/h · niveau":(e.assist?"assist. ":e.lestable?"lest ":"")+`<button class="btn-sm btn-ghost" data-unit="${i}" title="Basculer kg / lb pour cet exercice" style="padding:1px 6px;font-size:.7rem">${unitOf(e.id)} ⇄</button>`}</span><span class="h">${isCar(e.id)?"min":"reps"}</span><span class="h">ressenti</span><span></span>
+      ${x.sets.map((s,j)=>`<span class="num">${j+1}</span><input type="number" step="0.5" inputmode="decimal" id="p-${i}-${j}" value="${isCar(e.id)?s.poids:fmtU(s.poids,e.id)}" placeholder="${rec.poids!=null?(isCar(e.id)?rec.poids:fmtU(rec.poids,e.id)):(e.equip==="pdc"||e.assist||isCar(e.id)?"0":"")}" data-f="poids" data-i="${i}" data-j="${j}"><input type="number" inputmode="numeric" id="r-${i}-${j}" value="${s.reps}" placeholder="${isCar(e.id)?x.presc.repMax:x.presc.repMin}" data-f="reps" data-i="${i}" data-j="${j}"><select id="e-${i}-${j}" data-f="rpe" data-i="${i}" data-j="${j}" style="padding:6px 2px;text-align:center">${RESSENTI.map(([v,l])=>`<option value="${v}" ${String(s.rpe)===v?"selected":""}>${l}</option>`).join("")}</select><button class="btn-sm btn-ghost" data-rm="${i}:${j}" title="Retirer">×</button>`).join("")}</div>
       <div class="row small"><button class="btn-sm" data-add="${i}">+ série</button>${n<x.sets.length?`<span class="muted">Forme du jour : ${n} séries suffisent</span>`:""}<span class="grow"></span><button class="btn-sm btn-ghost" data-rmexo="${i}">Retirer l'exercice</button></div>
       <div class="subbox" id="sub-${i}" hidden></div>
-    </div>`}).join("")+`<div class="exo"><div class="row"><select id="add-exo" class="grow"><option value="">Ajouter un exercice…</option>${S.profil.exercices.filter(e=>current.lieu!=="maison"||e.equip==="pdc").map(e=>`<option value="${e.id}">${e.nom}</option>`).join("")}</select><button class="btn-sm" id="btn-add-exo">Ajouter</button></div></div>`;
+    </div>`}).join("")+`<div class="exo"><div class="row"><select id="add-exo" class="grow"><option value="">Ajouter un exercice…</option>${S.profil.exercices.filter(e=>current.lieu!=="maison"||faisableMaison(e)).map(e=>`<option value="${e.id}">${e.nom}</option>`).join("")}</select><button class="btn-sm" id="btn-add-exo">Ajouter</button></div></div>`;
   box.querySelectorAll("select[data-f]").forEach(sel=>sel.onchange=e=>{const{i,j}=e.target.dataset;current.exos[i].sets[j].rpe=e.target.value===""?"":+e.target.value;saveCurrent()});
-  box.querySelectorAll("input[data-f]").forEach(inp=>{inp.oninput=e=>{const{f,i,j}=e.target.dataset;const v=e.target.value===""?"":+e.target.value;current.exos[i].sets[j][f]=f==="poids"&&v!==""?fromU(v,current.exos[i].exoId):v;saveCurrent();renderEtat()};
-    inp.onchange=e=>{const{f,i,j}=e.target.dataset;if(f==="reps"&&e.target.value!==""&&S.profil.timerAuto!==false){const x=current.exos[i],last=+j===x.sets.length-1;startTimer(reposDefaut(),last?"Repos · exercice suivant":"Repos · série "+(+j+2))}}});
+  box.querySelectorAll("input[data-f]").forEach(inp=>{inp.oninput=e=>{const{f,i,j}=e.target.dataset;const v=e.target.value===""?"":+e.target.value;current.exos[i].sets[j][f]=f==="poids"&&v!==""&&!isCar(current.exos[i].exoId)?fromU(v,current.exos[i].exoId):v;saveCurrent();renderEtat()};
+    inp.onchange=e=>{const{f,i,j}=e.target.dataset;if(f==="reps"&&e.target.value!==""&&S.profil.timerAuto!==false&&!isCar(current.exos[i].exoId)){const x=current.exos[i],last=+j===x.sets.length-1;startTimer(reposDefaut(),last?"Repos · exercice suivant":"Repos · série "+(+j+2))}}});
   box.querySelectorAll("[data-unit]").forEach(b=>b.onclick=()=>{toggleUnit(current.exos[b.dataset.unit].exoId);renderExos(rf)});
   box.querySelectorAll("[data-done]").forEach(c=>c.onchange=()=>{const x=current.exos[c.dataset.done];x.done=c.checked;if(x.done)stopTimer();saveCurrent();renderExos(rf)});
   renderEtat();
@@ -643,7 +676,8 @@ function renderProfil(){
       <label class="f">Minuteur auto après chaque série<select id="pf-tauto"><option value="1" ${p.timerAuto!==false?"selected":""}>Oui</option><option value="0" ${p.timerAuto===false?"selected":""}>Non</option></select></label>
       <label class="f" style="grid-column:1/-1">Niveau<select id="pf-niv">${Object.entries(NIVEAUX).map(([k,v])=>`<option value="${k}" ${p.niveau===k?"selected":""}>${v}</option>`).join("")}</select></label>
     </div>
-    ${reprise()?`<div class="advice" style="margin-top:10px">Mode reprise : programme corps entier 3×/semaine sur machines et poulies, 2 séries à RPE 6–7, charge figée les 3 premières séances de chaque exercice, puis incréments normaux. Compte 6 à 8 semaines avant de passer en Intermédiaire. ${p.age>=40||p.poids/((p.taille/100)**2)>=30?"Vu l'âge ou l'IMC renseignés, un avis médical avant la reprise est recommandé, surtout en cas d'essoufflement anormal ou de douleur thoracique à l'effort.":""}</div>`:""}
+    ${fullbody()?`<div class="advice" style="margin-top:10px">Full body débutante : 3 séances par semaine, chacune 15 min de cardio puis 30 min de renforcement, version maison (poids du corps + tapis) ou salle au choix le jour même. Six premières semaines sans série à l'échec ; ensuite, la charge ou la variante monte dès que la fourchette haute est atteinte.</div>`:""}
+    ${repriseStricte()?`<div class="advice" style="margin-top:10px">Mode reprise : programme corps entier 3×/semaine sur machines et poulies, 2 séries à RPE 6–7, charge figée les 3 premières séances de chaque exercice, puis incréments normaux. Compte 6 à 8 semaines avant de passer en Intermédiaire. ${p.age>=40||p.poids/((p.taille/100)**2)>=30?"Vu l'âge ou l'IMC renseignés, un avis médical avant la reprise est recommandé, surtout en cas d'essoufflement anormal ou de douleur thoracique à l'effort.":""}</div>`:""}
     ${nage()?`<div class="advice" style="margin-top:10px">Mode endurance : 1–2 séances de salle par semaine + une séance maison de 20 min, force de soutien pour le crawl (tirage, hanches, triceps, coiffe des rotateurs). La progression est volontairement lente : la priorité reste le bassin.</div>`:""}
     <div class="row" style="margin-top:10px"><button class="btn-sm" id="pf-prog-rep">Programme reprise</button><button class="btn-sm" id="pf-prog-hb">Programme haut/bas</button><button class="btn-sm" id="pf-prog-nage">Programme natation</button></div>
     <div class="row" style="margin-top:10px;justify-content:flex-end"><button class="btn-primary" id="pf-save">Enregistrer</button></div>
@@ -657,7 +691,7 @@ function renderProfil(){
     <div class="row" style="margin-top:8px;justify-content:flex-end"><button id="ex-add">Ajouter l'exercice</button></div>
     <details style="margin-top:10px"><summary class="small">Voir la liste</summary><div class="tablewrap"><table style="margin-top:6px"><thead><tr><th>Exercice</th><th>Schéma</th><th>Matériel</th><th class="r">Incr.</th><th>Unité</th><th></th></tr></thead><tbody>${p.exercices.map(e=>`<tr><td>${e.nom} <button class="btn-sm play" data-anim="${e.id}">▶</button></td><td class="small">${PATTERNS[e.pattern]||""}</td><td class="small">${EQUIP[e.equip]||""}</td><td class="r">${e.incr}</td><td><button class="btn-sm btn-ghost" data-exunit="${e.id}">${e.unit||"kg"} ⇄</button></td><td class="r"><button class="btn-sm btn-ghost" data-exdel="${e.id}">×</button></td></tr>`).join("")}</tbody></table></div></details>
   </div>
-  ${authCardHtml()}
+  ${p.compteFacultatif&&!sbUser?`<details class="card"><summary>Sauvegarde cloud (facultatif)</summary><p class="small muted" style="margin:6px 0 0">Sans compte, tes séances restent sur ce téléphone. Pour les retrouver ailleurs, crée un compte ci-dessous.</p>${authCardHtml().replace('<div class="card">','<div style="margin-top:8px">')}</details>`:authCardHtml()}
   <div class="card"><h3>Méthode</h3><div class="small" style="margin-top:6px;display:flex;flex-direction:column;gap:6px">
     <div><strong>Reprise</strong> : corps entier 3×/semaine, exercices guidés, 2 puis 3 séries, RPE 6–7, charge figée 3 séances par exercice. Le volume monte avant l'intensité ; les charges libres lourdes (squat, soulevé de terre) attendent le niveau Intermédiaire.</div>
     <div><strong>Endurance / natation</strong> : force de soutien, 1–2 séances de salle + maison, RPE 7–8, peu de séries, repos longs, séance placée loin des nages clés. Poids du corps : progression aux reps puis au lest ou à la variante. Exercices lestés ou assistés : charge effective = poids du corps du jour + lest, ou − assistance ; progresser en assisté = réduire l'assistance.</div>
@@ -748,7 +782,7 @@ const ANIMS={
   A:{head:[50,12],sh:[50,26],el:[50,40],wr:[50,54],hip:[50,55],kn:[62,74],an:[64,95],toe:[74,95]},B:{head:[50,20],sh:[50,34],el:[50,48],wr:[50,62],hip:[46,66],kn:[62,76],an:[64,95],toe:[74,95]}},
 };
 const ANIM_BY_ID={presse:"squat",hack:"squat",leg_ext:"squat",fentes:"lunge",squat_bulgare:"lunge",leg_curl:"hinge",leg_curl_assis:"hinge",hip_thrust:"hipthrust",pont_uni:"hipthrust",pompes:"pushup",pompes_pdc:"pushup",pompes_pike:"pike",step_up:"stepup",step_down:"stepup",fentes_marche:"lunge",farmer:"farmer",dips:"triceps",pullover_bt:"pullover",rowing_inverse:"invrow",face_pull:"facepull",rot_ext:"facepull",ytw:"facepull",planche_lat:"plank",dead_bug:"core",releve_jambes:"core",crunch_cable:"core",pallof:"core"};
-const ANIM_BY_PATTERN={PH:"bench",PV:"ohp",TH:"row",TV:"pullup",GEN:"squat",HAN:"hinge",BIC:"curl",TRI:"triceps",MOL:"calf",ABD:"core",EPA:"facepull",POR:"farmer"};
+const ANIM_BY_PATTERN={CAR:"farmer",PH:"bench",PV:"ohp",TH:"row",TV:"pullup",GEN:"squat",HAN:"hinge",BIC:"curl",TRI:"triceps",MOL:"calf",ABD:"core",EPA:"facepull",POR:"farmer"};
 function animKey(exoId){return ANIM_BY_ID[exoId]||ANIM_BY_PATTERN[exo(exoId).pattern]||"squat"}
 let animRaf=null;
 function openAnim(exoId){
