@@ -307,6 +307,15 @@ function bestE1rm(sets){return Math.max(0,...sets.map(e1rm))}
 const sansLest=sets=>sets.every(s=>!s.poids&&!s.bw)||sets.some(s=>s.car);
 function metric(sets){return sansLest(sets)?Math.max(0,...sets.map(s=>+s.reps||0)):bestE1rm(sets)}
 function metricUnit(sets){return sets.some(s=>s.car)?"min":sansLest(sets)?"reps":"kg"}
+const estProgReprise=p=>!!(p&&/^rep_/.test(p.id));
+// Programme chargé incohérent avec le niveau Reprise (ex. haut/bas chargé par erreur)
+const progHorsNiveau=()=>repriseStricte()&&S.profil.programmes.some(p=>!estProgReprise(p));
+// Nombre de séances validées sur un mouvement, substitutions comprises (machine prise, autre club)
+function nbSeancesMouvement(exoId){
+  const g=new Set([exoId]);let grow=true;
+  while(grow){grow=false;S.seances.forEach(s=>s.exos.forEach(x=>{if(!x.origId)return;if(g.has(x.exoId)!==g.has(x.origId)){g.add(x.exoId);g.add(x.origId);grow=true}}))}
+  return S.seances.filter(s=>s.valide&&s.exos.some(x=>g.has(x.exoId)&&x.sets.some(filled))).length;
+}
 function histo(exoId){ // séances validées contenant cet exercice, chrono
   return S.seances.filter(s=>s.valide).sort((a,b)=>a.date.localeCompare(b.date)).map(s=>{const x=s.exos.find(e=>e.exoId===exoId&&e.sets.some(filled));if(!x)return null;const e=exo(exoId),bw=s.poidsCorps||S.profil.poids;return{date:s.date,seanceId:s.id,presc:x.presc,sets:x.sets.filter(filled).map(t=>({...t,eff:effLoad(t,e,bw),bw:!!(e.assist||e.lestable),car:e.pattern==="CAR"}))}}).filter(Boolean);
 }
@@ -346,13 +355,15 @@ function recommande(exoId,presc,rf){
   const top=sets.filter(s=>s.poids===maxP);
   let step=e.incr||2.5;if(step>maxP*0.15)step=Math.max(e.equip==="halt"?1:2.5,round(maxP*0.1,2.5)); // pas de +10 kg sur une machine réglée à 30
   // en reprise : la charge ne monte que si le RPE est resté sous la cible (pas de tolérance), et jamais avant la 3e séance de l'exercice
-  const allTop=top.every(s=>s.reps>=presc.repMax)&&avgRpe<=presc.rpe+(rp?0:0.5)&&(!rp||h.length>=3);
+  const nMvt=Math.max(h.length,nbSeancesMouvement(exoId)),atTop=top.every(s=>s.reps>=presc.repMax),rpeOk=avgRpe<=presc.rpe+0.5; // « juste » (7,5) vaut la cible 7
+  const allTop=atTop&&rpeOk&&(!rp||nMvt>=3);
   const anyBelow=top.some(s=>s.reps<presc.repMin);
   let poids=maxP,texte,tag;
-  if(rp&&h.length<3&&top.every(s=>s.reps>=presc.repMax)){texte="Phase d'apprentissage (séance "+(h.length+1)+"/3 sur cet exercice) : même charge, soigne l'amplitude et le tempo (2 s de descente). La charge montera à partir de la 3e séance.";tag="reps"}
+  if(rp&&nMvt<3&&atTop){texte="Phase d'apprentissage (séance "+(nMvt+1)+"/3 sur ce mouvement, toutes machines confondues) : même charge, soigne l'amplitude et le tempo (2 s de descente). La charge montera à partir de la 3e séance.";tag="reps"}
   else if(allTop){poids=maxP+step;texte="Dernière fois : toutes les séries au haut de la fourchette ("+presc.repMax+" reps)"+(sets.some(s=>s.rpe)?" à RPE "+avgRpe.toFixed(1):"")+". Monte de "+step+" kg, vise le bas de la fourchette ("+presc.repMin+").";tag="progresse"}
   else if(anyBelow){poids=round(maxP*0.925,e.incr||2.5);texte="Dernière fois sous "+presc.repMin+" reps : baisse de 7,5 % pour reconstruire des séries propres.";tag="recule"}
-  else{texte="Même charge : ajoute une rep sur chaque série (dernière fois "+top.map(s=>s.reps).join("/")+").";tag="reps"}
+  else if(atTop){texte="Déjà au haut de la fourchette ("+top.map(s=>s.reps).join("/")+") mais ressenti au-dessus de la cible (RPE "+avgRpe.toFixed(1)+" pour "+presc.rpe+") : même charge, mêmes reps, pas une de plus. La charge montera quand ce sera « facile » ou « juste ».";tag="reps"}
+  else{texte="Même charge : ajoute une rep sur les séries sous "+presc.repMax+" (dernière fois "+top.map(s=>s.reps).join("/")+"), sans dépasser "+presc.repMax+".";tag="reps"}
   // stagnation : 3 séances sans hausse du e1RM
   if(h.length>=4){const e3=h.slice(-4).map(x=>bestE1rm(x.sets));if(e3[3]<=e3[0]*1.005&&e3[2]<=e3[0]*1.005&&e3[1]<=e3[0]*1.005){texte+=" ⚠ Plateau depuis 3 séances : prévois une semaine de décharge (−40 % de volume) ou change de fourchette de reps.";tag="plateau"}}
   if(rf&&rf.f<1){poids=round(poids*rf.f,step);texte+=" Ajusté à ta forme du jour ("+Math.round((1-rf.f)*100)+" % en moins)."}
@@ -416,7 +427,8 @@ function renderSeance(){
   if(!current){
     const derniere=S.seances.filter(s=>s.valide).sort((a,b)=>b.date.localeCompare(a.date))[0];
     const next=prochainProgramme(aDesProgsMaison()?(lieuChoisi||"salle"):null);
-    el.innerHTML=`
+     el.innerHTML=`
+     ${progHorsNiveau()?`<div class="card"><div class="advice warn">Ton niveau est « Reprise » mais le programme chargé n'est pas celui de la reprise (séries et RPE plus élevés). <button class="btn-sm" id="btn-fix-prog">Recharger le programme de reprise</button></div></div>`:""}
     ${objectifCardHtml()}
     <div class="card">
       <div class="eyebrow">Prochaine séance suggérée</div>
@@ -436,8 +448,9 @@ function renderSeance(){
     el.querySelectorAll("[data-lieu]").forEach(b=>b.onclick=()=>{lieuChoisi=b.dataset.lieu;try{localStorage.setItem("lieu",lieuChoisi)}catch(e){};renderSeance()});
     $("#btn-start").onclick=()=>startSeance($("#sel-prog").value,$("#sel-club").value);
     $("#sel-club").onchange=e=>{S.profil.clubActif=e.target.value;persistProfil()};
-    $("#btn-print-next").onclick=()=>{const pid=$("#sel-prog").value,p=S.profil.programmes.find(x=>x.id===pid);if(!p)return;const oi=objectifInfo();const bonus=(repriseStricte()&&nbValide()>=6?1:0)+(oi&&oi.phase&&oi.phase.setDelta||0);const sh={date:today(),programmeId:pid,clubId:$("#sel-club").value,lieu:p.lieu||"salle",readiness:null,exos:p.exos.map(e=>({exoId:e.exoId,origId:null,presc:{...e,series:Math.max(1,e.series+bonus)},sets:[]}))};adapterAuClub(sh);printSheet(sh)};
+    $("#btn-print-next").onclick=()=>{const pid=$("#sel-prog").value,p=S.profil.programmes.find(x=>x.id===pid);if(!p)return;const oi=objectifInfo();const bonus=(repriseStricte()&&nbValide()>=6&&estProgReprise(p)?1:0)+(oi&&oi.phase&&oi.phase.setDelta||0);const sh={date:today(),programmeId:pid,clubId:$("#sel-club").value,lieu:p.lieu||"salle",readiness:null,exos:p.exos.map(e=>({exoId:e.exoId,origId:null,presc:{...e,series:Math.max(1,e.series+bonus)},sets:[]}))};adapterAuClub(sh);printSheet(sh)};
     const d=$("#btn-demo");if(d)d.onclick=chargerDemo;
+    const fx=$("#btn-fix-prog");if(fx)fx.onclick=()=>{S.profil.programmes=JSON.parse(JSON.stringify(REPRISE_PROGS));S.profil.joursSemaine=3;persistProfil();toast("Programme de reprise rechargé");render()};
     el.querySelectorAll("[data-del-seance]").forEach(b=>b.onclick=()=>{const id=b.dataset.delSeance;if(b.dataset.sure){S.seances=S.seances.filter(s=>s.id!==id);saveLocal();dbDelete("seance",id);render()}else{b.dataset.sure="1";b.textContent="Confirmer ?"}});
     return;
   }
@@ -494,7 +507,7 @@ let lieuChoisi=null;try{lieuChoisi=localStorage.getItem("lieu")||null}catch(e){}
 function aDesProgsMaison(){return S.profil.programmes.some(p=>p.lieu==="maison")&&S.profil.programmes.some(p=>(p.lieu||"salle")==="salle")}
 function startSeance(progId,clubId){
   const p=S.profil.programmes.find(x=>x.id===progId);ensureClubs();clubId=clubId||S.profil.clubActif;if(clubId!==S.profil.clubActif){S.profil.clubActif=clubId;persistProfil()}
-  const oi=objectifInfo();const bonus=(repriseStricte()&&nbValide()>=6?1:0)+(oi&&oi.phase&&oi.phase.setDelta||0); // reprise : 2 séries puis 3 ; affûtage : une de moins
+  const oi=objectifInfo();const bonus=(repriseStricte()&&nbValide()>=6&&estProgReprise(p)?1:0)+(oi&&oi.phase&&oi.phase.setDelta||0); // reprise : 2 séries puis 3 ; affûtage : une de moins
   current={id:uid(),date:today(),startedAt:Date.now(),programmeId:progId,clubId,lieu:p&&p.lieu||"salle",readiness:{sommeil:4,energie:4,courbatures:4},note:"",valide:false,
     exos:(p?p.exos:[]).map(e=>({exoId:e.exoId,origId:null,presc:{...e,series:Math.max(1,e.series+bonus)},sets:Array.from({length:Math.max(1,e.series+bonus)},()=>({poids:"",reps:"",rpe:""}))}))};
   const r=adapterAuClub(current);if(r.length)toast("Adapté au club : "+r.join(" · "));
@@ -709,9 +722,9 @@ function renderProfil(){
   $("#pf-save").onclick=()=>{const avant=p.niveau;Object.assign(p,{prenom:$("#pf-prenom").value,sexe:$("#pf-sexe").value,age:+$("#pf-age").value,taille:+$("#pf-taille").value,poids:+$("#pf-poids").value,activite:+$("#pf-act").value,objectif:$("#pf-obj").value,joursSemaine:+$("#pf-jours").value,niveau:$("#pf-niv").value,repos:+$("#pf-repos").value||0,timerAuto:$("#pf-tauto").value==="1",objectif_evt:{nom:$("#pf-obj-nom").value.trim(),date:$("#pf-obj-date").value}});
     if(avant!==p.niveau){p.programmes=JSON.parse(JSON.stringify(PROGS_PAR_NIVEAU[p.niveau]||BASE_PROGS));p.joursSemaine=JOURS_PAR_NIVEAU[p.niveau]||4;toast("Niveau et programme mis à jour")}else toast("Profil enregistré");
     persistProfil();render()};
-  $("#pf-prog-rep").onclick=()=>{p.programmes=JSON.parse(JSON.stringify(REPRISE_PROGS));p.joursSemaine=3;persistProfil();toast("Programme de reprise chargé");render()};
-  $("#pf-prog-hb").onclick=()=>{p.programmes=JSON.parse(JSON.stringify(BASE_PROGS));p.joursSemaine=4;persistProfil();toast("Programme haut/bas chargé");render()};
-  $("#pf-prog-nage").onclick=()=>{p.programmes=JSON.parse(JSON.stringify(NAGE_PROGS));p.joursSemaine=2;persistProfil();toast("Programme natation chargé");render()};
+  $("#pf-prog-rep").onclick=()=>{if(!confirm("Remplacer ton programme actuel par le programme reprise ?"))return;p.programmes=JSON.parse(JSON.stringify(REPRISE_PROGS));p.joursSemaine=3;persistProfil();toast("Programme de reprise chargé");render()};
+  $("#pf-prog-hb").onclick=()=>{if(!confirm("Remplacer ton programme actuel par le programme haut/bas ?"))return;p.programmes=JSON.parse(JSON.stringify(BASE_PROGS));p.joursSemaine=4;persistProfil();toast("Programme haut/bas chargé");render()};
+  $("#pf-prog-nage").onclick=()=>{if(!confirm("Remplacer ton programme actuel par le programme natation ?"))return;p.programmes=JSON.parse(JSON.stringify(NAGE_PROGS));p.joursSemaine=2;persistProfil();toast("Programme natation chargé");render()};
   el.querySelectorAll("[data-indispo]").forEach(c=>c.onchange=()=>{const id=c.dataset.indispo,cl=p.clubs.find(z=>z.id===c.dataset.club);if(!cl)return;cl.indispo=c.checked?[...new Set([...cl.indispo,id])]:cl.indispo.filter(x=>x!==id);persistProfil();const t=el.querySelector(".eyebrow[style]");if(t)t.textContent="Absent à "+cl.nom+" ("+cl.indispo.length+")"});
   $("#club-sel").onchange=e=>{window._clubEdit=e.target.value;renderProfil()};
   $("#club-add").onclick=()=>{const c={id:"club_"+uid(),nom:"Nouveau club",indispo:[]};p.clubs.push(c);window._clubEdit=c.id;persistProfil();renderProfil();setTimeout(()=>$("#club-ren").click(),50)};
