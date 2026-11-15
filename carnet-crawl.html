@@ -302,6 +302,8 @@ function bindAuth(){const l=$("#au-login"),s=$("#au-signup"),o=$("#au-logout"),r
 // Charge effective d'une série : barre/haltère = kg saisis ; poids du corps lesté = poids du jour + lest ; assisté = poids du jour − assistance
 function effLoad(set,e,bw){if(!e||e.equip!=="pdc"&&!e.assist)return +set.poids||0;if(e.assist)return Math.max(0,bw-(+set.poids||0));if(e.lestable)return bw+(+set.poids||0);return +set.poids||0}
 function e1rm(set){if(set.eff!=null){if(!set.eff||!set.reps)return 0;const rir=Math.max(0,10-(set.rpe||8));return set.eff*(1+(set.reps+rir)/30)}if(!set.poids||!set.reps)return 0;const rir=Math.max(0,10-(set.rpe||8));const r=set.reps+rir;return set.poids*(1+r/30)}
+// plateau réel : 3 séances sans hausse, en ignorant les séances où la charge était figée par la phase d'apprentissage (reprise)
+function plateauReel(exoId,h,m){const skip=reprise()?Math.max(0,2-(Math.max(h.length,nbSeancesMouvement(exoId))-h.length)):0;if(h.length-skip<4)return false;const b=m(h[h.length-4].sets);return h.slice(-3).every(x=>m(x.sets)<=b*1.005)}
 function bestE1rm(sets){return Math.max(0,...sets.map(e1rm))}
 // Métrique de progression : e1RM si charge, sinon (poids du corps sans lest) meilleure série en reps
 const sansLest=sets=>sets.every(s=>!s.poids&&!s.bw)||sets.some(s=>s.car);
@@ -365,7 +367,8 @@ function recommande(exoId,presc,rf){
   else if(atTop){texte="Déjà au haut de la fourchette ("+top.map(s=>s.reps).join("/")+") mais ressenti au-dessus de la cible (RPE "+avgRpe.toFixed(1)+" pour "+presc.rpe+") : même charge, mêmes reps, pas une de plus. La charge montera quand ce sera « facile » ou « juste ».";tag="reps"}
   else{texte="Même charge : ajoute une rep sur les séries sous "+presc.repMax+" (dernière fois "+top.map(s=>s.reps).join("/")+"), sans dépasser "+presc.repMax+".";tag="reps"}
   // stagnation : 3 séances sans hausse du e1RM
-  if(h.length>=4){const e3=h.slice(-4).map(x=>bestE1rm(x.sets));if(e3[3]<=e3[0]*1.005&&e3[2]<=e3[0]*1.005&&e3[1]<=e3[0]*1.005){texte+=" ⚠ Plateau depuis 3 séances : prévois une semaine de décharge (−40 % de volume) ou change de fourchette de reps.";tag="plateau"}}
+  // (jamais pendant que l'app impose elle-même de garder la charge, ni quand elle demande de monter)
+  if(tag!=="progresse"&&plateauReel(exoId,h,bestE1rm)){texte+=rp?" ⚠ 3 séances sans progression hors phase d'apprentissage : garde la charge, vérifie sommeil et protéines ; si ça dure, essaie une variante du même mouvement (pas de décharge à ce stade : le volume de reprise est déjà bas).":" ⚠ Plateau depuis 3 séances : prévois une semaine de décharge (−40 % de volume) ou change de fourchette de reps.";tag="plateau"}
   if(rf&&rf.f<1){poids=round(poids*rf.f,step);texte+=" Ajusté à ta forme du jour ("+Math.round((1-rf.f)*100)+" % en moins)."}
   return{poids:round(poids,step),texte,tag,last};
 }
@@ -594,7 +597,7 @@ function renderProgression(){
   if(!avecHisto.length){el.innerHTML=`<div class="card empty"><h3>Pas encore de données</h3><p>Valide une séance pour voir l'évolution du e1RM par exercice, le tonnage hebdomadaire et les alertes de plateau.</p></div>`;return}
   if(!selExo||!avecHisto.find(e=>e.id===selExo))selExo=avecHisto[0].id;
   const h=histo(selExo),e=exo(selExo),first=metric(h[0].sets),last=metric(h[h.length-1].sets),gain=last-first,unit=metricUnit(h[h.length-1].sets);
-  const plateau=h.length>=4&&h.slice(-3).every(x=>metric(x.sets)<=metric(h[h.length-4].sets)*1.005);
+  const plateau=plateauReel(selExo,h,metric);
   const vol=volumeSemaine();
   // bilan global : exercices en progression / stagnation
   const bilan=avecHisto.map(x=>{const hh=histo(x.id);if(hh.length<2)return{x,s:"nouveau"};const a=metric(hh[hh.length-1].sets),b=metric(hh[Math.max(0,hh.length-4)].sets);return{x,s:a>b*1.01?"progresse":a<b*0.98?"recule":"stagne"}});
@@ -713,7 +716,7 @@ function renderProfil(){
     <div><strong>Ressenti</strong> après chaque série, sans aller à l'échec : <em>Facile</em> = tu en avais encore 4 ou plus sous le pied (RPE 6), <em>Juste</em> = 2 à 3 de plus possibles (RPE 7,5), <em>Dur</em> = 1 de plus, pas deux (RPE 9), <em>Échec</em> = aucune (RPE 10). En reprise, la bonne réponse est « Facile » ou « Juste » ; « Dur » veut dire que la charge était trop haute pour la fourchette.</div>
     <div><strong>e1RM</strong> = charge × (1 + reps effectives / 30), où les reps en réserve (10 − RPE) s'ajoutent aux reps réalisées. C'est l'indice suivi dans Progrès.</div>
     <div><strong>Autorégulation</strong> : sommeil, énergie et courbatures notés de 1 à 5 avant la séance modulent charges et nombre de séries.</div>
-    <div><strong>Plateau</strong> : trois séances sans hausse du e1RM déclenchent un conseil de décharge ou de changement de fourchette.</div>
+    <div><strong>Plateau</strong> : trois séances sans hausse du e1RM déclenchent un conseil de décharge ou de changement de fourchette. Les séances à charge figée de la phase d'apprentissage (reprise) ne comptent pas, et en reprise le conseil est de tenir la charge plutôt que de décharger.</div>
     <div><strong>Substitution</strong> : même schéma moteur ; charge estimée par ratio de matériel puis remplacée par ton vrai historique dès la première séance notée.</div>
     <div><strong>Nutrition</strong> : Mifflin-St Jeor pour la dépense, 1,8–2,2 g/kg de protéines, ajustement par la tendance de poids sur 7 jours.</div>
   </div></div>
