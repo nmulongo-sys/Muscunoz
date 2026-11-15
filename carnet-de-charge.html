@@ -322,6 +322,8 @@ function histo(exoId){ // séances validées contenant cet exercice, chrono
   return S.seances.filter(s=>s.valide).sort((a,b)=>a.date.localeCompare(b.date)).map(s=>{const x=s.exos.find(e=>e.exoId===exoId&&e.sets.some(filled));if(!x)return null;const e=exo(exoId),bw=s.poidsCorps||S.profil.poids;return{date:s.date,seanceId:s.id,presc:x.presc,sets:x.sets.filter(filled).map(t=>({...t,eff:effLoad(t,e,bw),bw:!!(e.assist||e.lestable),car:e.pattern==="CAR"}))}}).filter(Boolean);
 }
 function readinessFactor(r){if(!r)return{f:1,setDelta:0,label:""};const ks=["sommeil","energie","courbatures"].concat(nage()?["sport"]:[]);const m=ks.reduce((a,k)=>a+(r[k]||4),0)/ks.length;if(m>=4)return{f:1,setDelta:0,label:"Forme bonne : prescription normale"};if(m>=3)return{f:1,setDelta:0,label:"Forme moyenne : garde les charges, ne force pas le RPE"};if(m>=2.2)return{f:.95,setDelta:-1,label:"Forme basse : charges −5 %, une série de moins par exercice"};return{f:.9,setDelta:-1,label:"Fatigue marquée : charges −10 %, une série de moins. Envisage une séance légère"}}
+// Dernier passage sur une variante du même schéma moteur (autre appareil), quand l'exercice lui-même n'a aucun historique
+function histoVariante(exoId){const e=exo(exoId);if(!e.pattern||e.pattern==="CAR")return null;let best=null;S.profil.exercices.forEach(x=>{if(x.id===exoId||x.pattern!==e.pattern||x.assist||x.equip==="pdc")return;const hh=histo(x.id);if(!hh.length)return;const l=hh[hh.length-1];if(!best||l.date>best.last.date)best={x,last:l,n:hh.length}});return best}
 // Recommandation par double progression
 function recommande(exoId,presc,rf){
   const e=exo(exoId),h=histo(exoId),rp=reprise();
@@ -352,6 +354,9 @@ function recommande(exoId,presc,rf){
     return{poids:0,texte:"Même variante : +1 rep par série (dernière fois "+reps.join("/")+").",tag:"reps",last};
   }
   if(!h.length&&e.lestable)return{poids:0,texte:"Lesté : note 0 tant que tu es au poids du corps, puis le lest en kg. L'e1RM inclut ton poids du jour ("+S.profil.poids+" kg).",tag:"nouveau"};
+  if(!h.length){const v=histoVariante(exoId);if(v){ // jamais noté sur cet appareil, mais mouvement déjà pratiqué sur une variante : on le rappelle
+    const mx=Math.max(...v.last.sets.map(s=>+s.poids||0)),est=estimeSubstitut(v.x.id,exoId);
+    return{poids:est.poids||null,texte:"Jamais noté sur cet appareil, mais tu connais le mouvement ("+v.n+" séance"+(v.n>1?"s":"")+" sur "+v.x.nom+"). Dernière fois le "+fmtDate(v.last.date)+" : "+v.last.sets.map(s=>s.reps).join("/")+" reps à "+(Math.round(mx*10)/10)+" kg."+(est.poids?" Repère de départ ici : ≈ "+est.poids+" kg, à corriger au ressenti (les charges ne se transposent pas exactement d'un appareil à l'autre).":" Pars un peu en dessous et corrige au ressenti."),tag:"nouveau"}}}
   if(!h.length)return{poids:null,texte:rp?"Première fois : prends une charge franchement légère, où tu pourrais faire 5 reps de plus que demandé. Le but des 2 premières semaines est d'apprendre le geste, pas de charger.":"Première fois : choisis une charge où la dernière rep de la série 1 reste propre (RPE ≈ "+presc.rpe+"). L'app calibrera ensuite.",tag:"nouveau"};
   const last=h[h.length-1],sets=last.sets,avgRpe=sets.reduce((a,s)=>a+(+s.rpe||presc.rpe),0)/sets.length,maxP=Math.max(...sets.map(s=>s.poids));
   const top=sets.filter(s=>s.poids===maxP);
