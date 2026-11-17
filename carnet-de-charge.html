@@ -359,11 +359,12 @@ function recommande(exoId,presc,rf){
   // en reprise : la charge ne monte que si le RPE est resté sous la cible (pas de tolérance), et jamais avant la 3e séance de l'exercice
   const nMvt=Math.max(h.length,nbSeancesMouvement(exoId)),atTop=top.every(s=>s.reps>=presc.repMax),rpeOk=avgRpe<=presc.rpe+0.5; // « juste » (7,5) vaut la cible 7
   const allTop=atTop&&rpeOk&&(!rp||nMvt>=3);
-  const anyBelow=top.some(s=>s.reps<presc.repMin);
+  const nBelow=top.filter(s=>s.reps<presc.repMin).length,anyBelow=nBelow*2>=top.length&&nBelow>0; // recul seulement si au moins la moitié des séries lourdes sont sous la fourchette
   let poids=maxP,texte,tag;
   if(rp&&nMvt<3&&atTop){texte="Phase d'apprentissage (séance "+(nMvt+1)+"/3 sur ce mouvement, toutes machines confondues) : même charge, soigne l'amplitude et le tempo (2 s de descente). La charge montera à partir de la 3e séance.";tag="reps"}
   else if(allTop){poids=maxP+step;texte="Dernière fois : toutes les séries au haut de la fourchette ("+presc.repMax+" reps)"+(sets.some(s=>s.rpe)?" à RPE "+avgRpe.toFixed(1):"")+". Monte de "+step+" kg, vise le bas de la fourchette ("+presc.repMin+").";tag="progresse"}
-  else if(anyBelow){poids=round(maxP*0.925,e.incr||2.5);texte="Dernière fois sous "+presc.repMin+" reps : baisse de 7,5 % pour reconstruire des séries propres.";tag="recule"}
+  else if(anyBelow){poids=round(maxP*0.925,e.incr||2.5);texte="Dernière fois "+top.map(s=>s.reps).join("/")+" : la plupart des séries sous "+presc.repMin+" reps. Baisse de 7,5 % pour reconstruire des séries propres.";tag="recule"}
+  else if(nBelow){texte="Dernière fois "+top.map(s=>s.reps).join("/")+" : "+(nBelow>1?nBelow+" séries":"une seule série")+" sous "+presc.repMin+" reps, les autres dans la fourchette. Même charge : vise au moins "+presc.repMin+" sur chaque série avant d'ajouter des reps.";tag="reps"}
   else if(atTop){texte="Déjà au haut de la fourchette ("+top.map(s=>s.reps).join("/")+") mais ressenti au-dessus de la cible (RPE "+avgRpe.toFixed(1)+" pour "+presc.rpe+") : même charge, mêmes reps, pas une de plus. La charge montera quand ce sera « facile » ou « juste ».";tag="reps"}
   else{texte="Même charge : ajoute une rep sur les séries sous "+presc.repMax+" (dernière fois "+top.map(s=>s.reps).join("/")+"), sans dépasser "+presc.repMax+".";tag="reps"}
   // stagnation : 3 séances sans hausse du e1RM
@@ -446,6 +447,7 @@ function renderSeance(){
       <div class="row" style="margin-top:8px"><button class="btn-sm" id="btn-print-next">Imprimer la fiche de cette séance</button><span class="small muted">Grille vierge pour noter à la salle, à retranscrire au retour.</span></div>
     </div>
     ${S.seances.length===0?`<div class="card empty"><h3>Carnet vide</h3><p>Chaque séance validée alimente les recommandations de charge, l'analyse de plateau et les substitutions. Pour voir l'application en fonctionnement avant ta première séance :</p><button id="btn-demo">Charger 4 semaines d'exemple</button></div>`:""}
+    ${apercuProchaines(3)}
     ${historiqueHtml()}`;
     bindObjectif();
     el.querySelectorAll("[data-lieu]").forEach(b=>b.onclick=()=>{lieuChoisi=b.dataset.lieu;try{localStorage.setItem("lieu",lieuChoisi)}catch(e){};renderSeance()});
@@ -463,6 +465,7 @@ function renderSeance(){
   <div class="card">
     <div class="row"><div class="grow"><label class="eyebrow" for="cur-date" style="display:block">Date de la séance</label><input type="date" id="cur-date" value="${current.date}" max="${today()}" style="width:auto;margin:2px 0 4px"><h2>${progNom(current.programmeId)}</h2></div></div>
     ${current.lieu!=="maison"?`<div class="row" style="margin-top:8px"><label class="f grow">Club<select id="cur-club">${(ensureClubs(),S.profil.clubs).map(c=>`<option value="${c.id}" ${c.id===current.clubId?"selected":""}>${c.nom}</option>`).join("")}</select></label></div>`:""}
+    ${current.date<today()&&!current.exos.some(x=>x.done||x.sets.some(filled))?`<div class="advice warn" style="margin-top:8px">Séance ouverte le ${fmtDate(current.date)} sans aucune série notée. <button class="btn-sm" id="btn-redate">La dater d'aujourd'hui</button></div>`:""}
     <div class="small muted" id="etat-seance" style="margin-top:8px"></div>
     <div class="row" style="margin-top:8px"><button class="btn-sm" id="btn-repos">⏱ Repos</button><button class="btn-sm" id="btn-print">Imprimer la fiche</button><span class="grow"></span><button class="btn-sm btn-ghost" id="btn-abandon">Abandonner</button></div>
     <div class="legend" style="margin-top:8px">${(current.exos.some(x=>isCar(x.exoId))?[5,1,2,3,4]:[1,2,3,4]).map(k=>`<span style="--gc:var(--g${k})">${FAM_NOM[k]}</span>`).join("")}</div>
@@ -473,14 +476,14 @@ function renderSeance(){
     <div class="advice ${rf.f<1?"warn":"ok"}" style="margin-top:10px">${rf.label}</div>
   </div>
   ${repriseStricte()?`<div class="card"><div class="eyebrow">Consignes de reprise · séance n°${nbValide()+1}</div><div class="small" style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
-    <div>Arrête chaque série avec 3–4 reps en réserve : ressenti « Facile » ou « Juste ». « Dur », c'est trop lourd pour la fourchette.</div>
+    <div>Arrête chaque série en gardant environ 3 reps en réserve. « Facile » (4 ou plus en réserve) et « Juste » (2–3) conviennent ; « Dur » (une seule), c'est trop lourd pour la fourchette.</div>
     <div>2 minutes de repos entre les séries, 48 h entre deux séances. ${nbValide()<6?"2 séries par exercice jusqu'à la 6e séance, puis 3.":"3 séries par exercice."}</div>
     <div>Des courbatures le lendemain sont normales les 2 premières semaines ; une douleur articulaire ne l'est pas : réduis la charge ou change d'exercice (bouton « Machine prise »).</div>
     ${nbValide()>=18?`<div><strong>18 séances validées :</strong> tu peux passer au niveau Intermédiaire dans Profil pour débloquer le programme haut/bas et les charges libres.</div>`:""}
   </div></div>`:""}
   ${fullbody()?`<div class="card"><div class="eyebrow">Full body · ${current.lieu==="maison"?"maison":"salle"} · séance n°${nbValide()+1}</div><div class="small" style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
     <div>Un tiers cardio, deux tiers renforcement : ${current.lieu==="maison"?"15 min de tapis":"15 min au choix (rameur, escalier, tapis, vélo — bouton « Machine prise » pour changer)"} puis 30 min de renfo. Le cardio sert d'échauffement : allure où tu peux parler.</div>
-    <div>Chaque série s'arrête avec 2–3 reps de réserve (« Facile » ou « Juste »). Aucune série à l'échec les 6 premières semaines.</div>
+    <div>Chaque série s'arrête avec 2–3 reps en réserve (« Juste ») ; « Facile » (4 ou plus) convient aussi. Aucune série à l'échec les 6 premières semaines.</div>
     <div>Alterne A et B, 3 fois par semaine, jamais deux jours de suite. Maison ou salle se décide le jour même : les deux versions travaillent les mêmes schémas moteurs.</div>
   </div></div>`:""}
   ${nage()?`<div class="card"><div class="eyebrow">Consignes force de soutien · natation</div><div class="small" style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
@@ -489,6 +492,7 @@ function renderSeance(){
     <div>Placement : le jour d'une nage facile ou ≥ 6 h après, jamais la veille d'une séance de vitesse ou d'une compétition. La séance maison remplace la salle les semaines chargées.</div>
     <div>Épaules : les face pull, rotations externes et Y-T-W sont la prévention de l'épaule du nageur ; légers, propres, jamais sautés.</div>
   </div></div>`:""}
+  ${apercuProchaines(3)}
   <div class="card flush" id="exos"></div>
   <div class="card">
     <label class="f">Notes de séance<textarea id="note" rows="2" placeholder="Douleur, matériel, sensations…">${current.note||""}</textarea></label>
@@ -499,12 +503,35 @@ function renderSeance(){
   const cc=$("#cur-club");if(cc)cc.onchange=e=>{current.clubId=e.target.value;S.profil.clubActif=e.target.value;persistProfil();const r=adapterAuClub(current);toast(r.length?"Adapté au club : "+r.join(" · "):"Club changé, rien à adapter");saveCurrent();renderSeance()};
   $("#btn-repos").onclick=()=>startTimer(reposDefaut(),"Repos");
   $("#btn-print").onclick=()=>printSheet(current);
+  {const rd=$("#btn-redate");if(rd)rd.onclick=()=>{current.date=today();current.startedAt=Date.now();saveCurrent();renderSeance();toast("Séance datée d'aujourd'hui")}}
   $("#btn-abandon").onclick=()=>{const b=$("#btn-abandon");if(!b.dataset.sure){b.dataset.sure="1";b.textContent="Confirmer l'abandon";return}clearCurrent();stopTimer();renderSeance()};
   $("#note").oninput=e=>{current.note=e.target.value;saveCurrent()};
   $("#btn-valide").onclick=validerSeance;
   renderExos(rf);
 }
 function progNom(id){const p=S.profil.programmes.find(p=>p.id===id);return p?p.nom:"Séance libre"}
+/* ---------- Aperçu des prochaines séances ---------- */
+function apercuProchaines(n){
+  let ps=S.profil.programmes;if(!ps.length)return"";
+  const lieu=current?current.lieu:(aDesProgsMaison()?(lieuChoisi||"salle"):null);
+  if(lieu){const f=ps.filter(p=>(p.lieu||"salle")===lieu);if(f.length)ps=f}
+  const derniere=S.seances.filter(s=>s.valide).sort((a,b)=>b.date.localeCompare(a.date))[0];
+  const clubId=current?current.clubId:S.profil.clubActif,oi=objectifInfo(),pas=Math.max(2,Math.round(7/(S.profil.joursSemaine||3)));
+  const plus=(iso,j)=>{const d=new Date(iso+"T12:00");d.setDate(d.getDate()+j);return d.toISOString().slice(0,10)};
+  let i,prev,nb=nbValide(),date;
+  if(current){i=ps.findIndex(p=>p.id===current.programmeId)+1;prev=current.exos.map(x=>x.exoId);nb++;date=plus(today(),pas)}
+  else{const nx=prochainProgramme(lieu);i=Math.max(0,ps.findIndex(p=>p.id===nx.id));prev=derniere?derniere.exos.map(x=>x.exoId):[];date=derniere&&plus(derniere.date,2)>today()?plus(derniere.date,2):today()}
+  let out="";
+  for(let k=0;k<n;k++,nb++,date=plus(date,pas)){
+    const p=ps[(i+k)%ps.length],bonus=(repriseStricte()&&nb>=6&&estProgReprise(p)?1:0)+(oi&&oi.phase&&oi.phase.setDelta||0);
+    const sh={clubId,lieu:p.lieu||"salle",exos:p.exos.map(e=>({exoId:e.exoId,origId:null,presc:{...e,series:Math.max(1,e.series+bonus)},sets:[]}))};adapterAuClub(sh);
+    out+=`<div style="margin-top:12px"><div class="row"><strong class="grow">${p.nom}</strong><span class="small muted">${k===0&&!current&&date===today()?"aujourd'hui":"vers le "+fmtDate(date)}</span></div>
+      <div class="small" style="margin-top:4px;display:flex;flex-direction:column;gap:3px">${sh.exos.map(x=>{const e=exo(x.exoId),rec=recommande(x.exoId,x.presc,{f:1,setDelta:0,label:""});return`<div style="${famStyle(x.exoId)};border-left:3px solid var(--gc);padding-left:8px">${e.nom}${x.origId?" <span class='pill warn'>substitut</span>":""} <span class="muted">· ${isCar(x.exoId)?(x.presc.repMin===x.presc.repMax?x.presc.repMin:x.presc.repMin+"–"+x.presc.repMax)+" min":x.presc.series+" × "+x.presc.repMin+"–"+x.presc.repMax+(rec&&rec.poids?" · "+(fmtU(rec.poids,x.exoId)+" "+unitOf(x.exoId)).trim():"")}</span>${prev.includes(x.exoId)?" <span class='pill'>déjà la séance d'avant</span>":""}</div>`}).join("")}</div></div>`;
+    prev=sh.exos.map(x=>x.exoId);
+  }
+  return`<details class="card" id="apercu"><summary>Aperçu des ${n} prochaines séances</summary>
+    <div class="small muted" style="margin-top:6px">${derniere?"Dernière séance validée : "+fmtDate(derniere.date)+" · "+progNom(derniere.programmeId)+". ":""}${current?"En cours : "+progNom(current.programmeId)+". ":""}Exercices adaptés au club ${clubDe(clubId).nom} ; charges indicatives, recalculées après chaque séance.</div>${out}</details>`;
+}
 function prochainProgramme(lieu){let ps=S.profil.programmes;if(!ps.length)return null;if(lieu){const f=ps.filter(p=>(p.lieu||"salle")===lieu);if(f.length)ps=f}const last=S.seances.filter(s=>s.valide&&ps.some(p=>p.id===s.programmeId)).sort((a,b)=>b.date.localeCompare(a.date))[0];if(!last)return ps[0];const i=ps.findIndex(p=>p.id===last.programmeId);return ps[(i+1)%ps.length]}
 let lieuChoisi=null;try{lieuChoisi=localStorage.getItem("lieu")||null}catch(e){}
 function aDesProgsMaison(){return S.profil.programmes.some(p=>p.lieu==="maison")&&S.profil.programmes.some(p=>(p.lieu||"salle")==="salle")}
